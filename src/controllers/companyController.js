@@ -35,7 +35,42 @@ async function updateCompany(req, res) {
     return error(res, 'Invalid company id', 400);
   }
 
+  const existing = await companyService.getCompanyById(id);
+  if (!existing) {
+    return error(res, 'Company not found', 404);
+  }
+
   const company = await companyService.updateCompany(id, req.body);
+  return success(res, company);
+}
+
+async function updateCompanyStep2(req, res) {
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return error(res, 'Invalid company id', 400);
+  }
+
+  const existing = await companyService.getCompanyById(id);
+  if (!existing) {
+    return error(res, 'Company not found', 404);
+  }
+
+  const company = await companyService.updateCompanyStep2(id, req.body);
+  return success(res, company);
+}
+
+async function updateCompanyStep3(req, res) {
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return error(res, 'Invalid company id', 400);
+  }
+
+  const existing = await companyService.getCompanyById(id);
+  if (!existing) {
+    return error(res, 'Company not found', 404);
+  }
+
+  const company = await companyService.updateCompanyStep3(id, req.body);
   return success(res, company);
 }
 
@@ -54,5 +89,7 @@ module.exports = {
   getCompanies,
   getCompanyById,
   updateCompany,
+  updateCompanyStep2,
+  updateCompanyStep3,
   deleteCompany,
 };

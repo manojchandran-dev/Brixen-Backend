@@ -1,62 +1,121 @@
+const OPTIONAL_STRING_FIELDS = [
+  'phone',
+  'email',
+  'gst_number',
+  'address',
+  'city',
+  'state',
+  'pincode',
+  'industry_type',
+  'subscription_plan',
+  'status',
+  'entity_type',
+  'pan_card',
+  'employee_count',
+  'secondary_email',
+  'website',
+];
+
+function validateOptionalStrings(body, errors, fields = OPTIONAL_STRING_FIELDS) {
+  for (const field of fields) {
+    if (body[field] !== undefined && body[field] !== null && typeof body[field] !== 'string') {
+      errors.push(`${field} must be a string`);
+    }
+  }
+}
+
+// Step 1 — Identity
 function validateCreateCompany(req, res, next) {
-  const { name, email, phone, address } = req.body;
+  const { company_name, entity_type, founded_year } = req.body;
   const errors = [];
 
-  if (!name || typeof name !== 'string' || !name.trim()) {
-    errors.push('name is required and must be a non-empty string');
+  if (!company_name || typeof company_name !== 'string' || !company_name.trim()) {
+    errors.push('company_name is required and must be a non-empty string');
   }
 
-  if (email && typeof email !== 'string') {
-    errors.push('email must be a string');
+  if (!entity_type || typeof entity_type !== 'string' || !entity_type.trim()) {
+    errors.push('entity_type is required and must be a non-empty string');
   }
 
-  if (phone && typeof phone !== 'string') {
-    errors.push('phone must be a string');
+  if (founded_year !== undefined && founded_year !== null && !Number.isInteger(founded_year)) {
+    errors.push('founded_year must be an integer');
   }
 
-  if (address && typeof address !== 'string') {
-    errors.push('address must be a string');
-  }
+  validateOptionalStrings(req.body, errors);
 
   if (errors.length) {
-    return res.status(400).json({
-      success: false,
-      errors,
-    });
+    return res.status(400).json({ success: false, errors });
   }
 
   next();
 }
 
 function validateUpdateCompany(req, res, next) {
-  const { name, email, phone, address } = req.body;
+  const { company_name } = req.body;
   const errors = [];
 
-  if (!name && !email && !phone && !address) {
-    errors.push('At least one update field is required: name, email, phone, or address');
+  if (Object.keys(req.body).length === 0) {
+    errors.push('At least one field is required to update');
   }
 
-  if (name && typeof name !== 'string') {
-    errors.push('name must be a string');
+  if (company_name !== undefined && (typeof company_name !== 'string' || !company_name.trim())) {
+    errors.push('company_name must be a non-empty string');
   }
 
-  if (email && typeof email !== 'string') {
-    errors.push('email must be a string');
+  validateOptionalStrings(req.body, errors);
+
+  if (errors.length) {
+    return res.status(400).json({ success: false, errors });
   }
 
-  if (phone && typeof phone !== 'string') {
-    errors.push('phone must be a string');
+  next();
+}
+
+// Step 2 — Contact
+function validateStep2(req, res, next) {
+  const { owner_name, email } = req.body;
+  const errors = [];
+
+  if (!owner_name || typeof owner_name !== 'string' || !owner_name.trim()) {
+    errors.push('owner_name is required and must be a non-empty string');
   }
 
-  if (address && typeof address !== 'string') {
-    errors.push('address must be a string');
+  if (!email || typeof email !== 'string' || !email.trim()) {
+    errors.push('email is required and must be a non-empty string');
+  }
+
+  validateOptionalStrings(req.body, errors, ['phone', 'secondary_email', 'website']);
+
+  if (errors.length) {
+    return res.status(400).json({ success: false, errors });
+  }
+
+  next();
+}
+
+// Step 3 — Location
+function validateStep3(req, res, next) {
+  const { address, city, state, pincode } = req.body;
+  const errors = [];
+
+  if (!address || typeof address !== 'string' || !address.trim()) {
+    errors.push('address is required and must be a non-empty string');
+  }
+
+  if (!city || typeof city !== 'string' || !city.trim()) {
+    errors.push('city is required and must be a non-empty string');
+  }
+
+  if (!state || typeof state !== 'string' || !state.trim()) {
+    errors.push('state is required and must be a non-empty string');
+  }
+
+  if (!pincode || typeof pincode !== 'string' || !pincode.trim()) {
+    errors.push('pincode is required and must be a non-empty string');
   }
 
   if (errors.length) {
-    return res.status(400).json({
-      success: false,
-      errors,
-    });
+    return res.status(400).json({ success: false, errors });
   }
 
   next();
@@ -65,4 +124,6 @@ function validateUpdateCompany(req, res, next) {
 module.exports = {
   validateCreateCompany,
   validateUpdateCompany,
+  validateStep2,
+  validateStep3,
 };

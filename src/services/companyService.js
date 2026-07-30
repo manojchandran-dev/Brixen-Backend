@@ -1,7 +1,56 @@
+const { Prisma } = require('@prisma/client');
 const companyRepository = require('../repositories/companyRepository');
+const { generateCompanyCode } = require('../utils/companyCode');
+
+const STEP2_FIELDS = ['owner_name', 'email', 'phone', 'secondary_email', 'website'];
+const STEP3_FIELDS = ['address', 'city', 'state', 'pincode'];
+
+const MAX_CODE_ATTEMPTS = 5;
+
+function isStepComplete(company, fields) {
+  return fields.every((field) => company[field] !== null && company[field] !== undefined && company[field] !== '');
+}
+
+function computeOnboardingStatus(company) {
+  const step2Done = isStepComplete(company, ['owner_name', 'email']);
+  const step3Done = isStepComplete(company, STEP3_FIELDS);
+  return step2Done && step3Done ? 'completed' : 'pending';
+}
+
+async function recomputeOnboardingStatus(id) {
+  const company = await companyRepository.findById(id);
+  const onboarding_status = computeOnboardingStatus(company);
+
+  if (company.onboarding_status === onboarding_status) {
+    return company;
+  }
+
+  return companyRepository.update(id, { onboarding_status });
+}
 
 async function createCompany(data) {
-  return companyRepository.create(data);
+  const { company_code, onboarding_status, ...rest } = data;
+
+  for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt += 1) {
+    try {
+      return await companyRepository.create({
+        ...rest,
+        company_code: generateCompanyCode(),
+        onboarding_status: 'pending',
+      });
+    } catch (err) {
+      const isDuplicateCode =
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002' &&
+        err.meta?.target?.includes('company_code');
+
+      if (!isDuplicateCode) {
+        throw err;
+      }
+    }
+  }
+
+  throw new Error('Failed to generate a unique company code, please retry');
 }
 
 async function getCompanies({ page = 1, limit = 20, search = '' }) {
@@ -11,7 +60,8 @@ async function getCompanies({ page = 1, limit = 20, search = '' }) {
   const where = search
     ? {
         OR: [
-          { name: { contains: search, mode: 'insensitive' } },
+          { company_name: { contains: search, mode: 'insensitive' } },
+          { company_code: { contains: search, mode: 'insensitive' } },
           { address: { contains: search, mode: 'insensitive' } },
           { email: { contains: search, mode: 'insensitive' } },
         ],
@@ -19,7 +69,7 @@ async function getCompanies({ page = 1, limit = 20, search = '' }) {
     : {};
 
   const [data, total] = await Promise.all([
-    companyRepository.findMany({ where, skip, take, orderBy: { createdAt: 'desc' } }),
+    companyRepository.findMany({ where, skip, take, orderBy: { created_at: 'desc' } }),
     companyRepository.count(where),
   ]);
 
@@ -39,7 +89,29 @@ async function getCompanyById(id) {
 }
 
 async function updateCompany(id, data) {
-  return companyRepository.update(id, data);
+  const { company_code, onboarding_status, ...rest } = data;
+  await companyRepository.update(id, rest);
+  return recomputeOnboardingStatus(id);
+}
+
+async function updateCompanyStep2(id, data) {
+  const payload = STEP2_FIELDS.reduce((acc, field) => {
+    if (data[field] !== undefined) acc[field] = data[field];
+    return acc;
+  }, {});
+
+  await companyRepository.update(id, payload);
+  return recomputeOnboardingStatus(id);
+}
+
+async function updateCompanyStep3(id, data) {
+  const payload = STEP3_FIELDS.reduce((acc, field) => {
+    if (data[field] !== undefined) acc[field] = data[field];
+    return acc;
+  }, {});
+
+  await companyRepository.update(id, payload);
+  return recomputeOnboardingStatus(id);
 }
 
 async function deleteCompany(id) {
@@ -51,5 +123,7 @@ module.exports = {
   getCompanies,
   getCompanyById,
   updateCompany,
+  updateCompanyStep2,
+  updateCompanyStep3,
   deleteCompany,
 };
