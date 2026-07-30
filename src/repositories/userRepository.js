@@ -12,8 +12,13 @@ function create(data) {
   return prisma.users.create({ data });
 }
 
+function update(id, data) {
+  return prisma.users.update({ where: { id }, data });
+}
+
 module.exports = {
   findByEmail,
   findById,
   create,
+  update,
 };

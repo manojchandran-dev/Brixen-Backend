@@ -79,9 +79,64 @@ async function logout(refreshToken) {
   }
 }
 
+async function setPin(userId, pin, currentPin) {
+  const user = await userRepository.findById(userId);
+  if (!user) {
+    throw new AuthError('User not found', 404);
+  }
+
+  if (user.pin_hash) {
+    const currentPinMatches = currentPin && (await bcrypt.compare(currentPin, user.pin_hash));
+    if (!currentPinMatches) {
+      throw new AuthError('Current PIN is incorrect');
+    }
+  }
+
+  const pin_hash = await bcrypt.hash(pin, 10);
+  await userRepository.update(userId, { pin_hash });
+}
+
+async function verifyPin(refreshToken, pin) {
+  let payload;
+  try {
+    payload = verifyRefreshToken(refreshToken);
+  } catch {
+    throw new AuthError('Invalid or expired refresh token');
+  }
+
+  const tokenHash = hashToken(refreshToken);
+  const stored = await refreshTokenRepository.findValidByHash(tokenHash);
+  if (!stored) {
+    throw new AuthError('Invalid or expired refresh token');
+  }
+
+  const user = await userRepository.findById(payload.sub);
+  if (!user) {
+    throw new AuthError('Invalid or expired refresh token');
+  }
+
+  if (!user.pin_hash) {
+    throw new AuthError('PIN is not set for this user', 400);
+  }
+
+  const pinMatches = await bcrypt.compare(pin, user.pin_hash);
+  if (!pinMatches) {
+    throw new AuthError('Invalid PIN');
+  }
+
+  await refreshTokenRepository.revoke(stored.id);
+  const tokens = await issueTokens(user);
+  return {
+    user: { id: user.id, email: user.email, role: user.role },
+    ...tokens,
+  };
+}
+
 module.exports = {
   AuthError,
   login,
   refresh,
   logout,
+  setPin,
+  verifyPin,
 };

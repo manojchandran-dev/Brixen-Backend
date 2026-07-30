@@ -32,7 +32,49 @@ function validateRefresh(req, res, next) {
   next();
 }
 
+const PIN_REGEX = /^\d{6}$/;
+
+function validateSetPin(req, res, next) {
+  const { pin, currentPin } = req.body;
+  const errors = [];
+
+  if (!pin || !PIN_REGEX.test(pin)) {
+    errors.push('pin is required and must be exactly 6 digits');
+  }
+
+  if (currentPin !== undefined && !PIN_REGEX.test(currentPin)) {
+    errors.push('currentPin must be exactly 6 digits');
+  }
+
+  if (errors.length) {
+    return res.status(400).json({ success: false, errors });
+  }
+
+  next();
+}
+
+function validateVerifyPin(req, res, next) {
+  const { refreshToken, pin } = req.body;
+  const errors = [];
+
+  if (!refreshToken || typeof refreshToken !== 'string' || !refreshToken.trim()) {
+    errors.push('refreshToken is required and must be a non-empty string');
+  }
+
+  if (!pin || !PIN_REGEX.test(pin)) {
+    errors.push('pin is required and must be exactly 6 digits');
+  }
+
+  if (errors.length) {
+    return res.status(400).json({ success: false, errors });
+  }
+
+  next();
+}
+
 module.exports = {
   validateLogin,
   validateRefresh,
+  validateSetPin,
+  validateVerifyPin,
 };
