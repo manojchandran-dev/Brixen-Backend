@@ -74,6 +74,23 @@ async function updateCompanyStep3(req, res) {
   return success(res, company);
 }
 
+async function updateCompanyStatus(req, res) {
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return error(res, 'Invalid company id', 400);
+  }
+
+  try {
+    const company = await companyService.updateCompanyStatus(id, req.body.status);
+    return success(res, company);
+  } catch (err) {
+    if (err instanceof companyService.CompanyError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
 async function deleteCompany(req, res) {
   const id = parseInt(req.params.id, 10);
   if (Number.isNaN(id)) {
@@ -91,5 +108,6 @@ module.exports = {
   updateCompany,
   updateCompanyStep2,
   updateCompanyStep3,
+  updateCompanyStatus,
   deleteCompany,
 };

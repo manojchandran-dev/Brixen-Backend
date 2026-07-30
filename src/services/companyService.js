@@ -7,6 +7,13 @@ const STEP3_FIELDS = ['address', 'city', 'state', 'pincode'];
 
 const MAX_CODE_ATTEMPTS = 5;
 
+class CompanyError extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
 function isStepComplete(company, fields) {
   return fields.every((field) => company[field] !== null && company[field] !== undefined && company[field] !== '');
 }
@@ -114,16 +121,31 @@ async function updateCompanyStep3(id, data) {
   return recomputeOnboardingStatus(id);
 }
 
+async function updateCompanyStatus(id, status) {
+  const company = await companyRepository.findById(id);
+  if (!company) {
+    throw new CompanyError('Company not found', 404);
+  }
+
+  if (company.onboarding_status !== 'completed') {
+    throw new CompanyError('Company must complete all 3 onboarding steps before its status can be changed');
+  }
+
+  return companyRepository.update(id, { status });
+}
+
 async function deleteCompany(id) {
   return companyRepository.delete(id);
 }
 
 module.exports = {
+  CompanyError,
   createCompany,
   getCompanies,
   getCompanyById,
   updateCompany,
   updateCompanyStep2,
   updateCompanyStep3,
+  updateCompanyStatus,
   deleteCompany,
 };

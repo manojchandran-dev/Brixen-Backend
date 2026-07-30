@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(psql -U postgres -h localhost -c \"\\\\l\")",
-      "PowerShell(psql -U postgres -h localhost -c \"\\\\l\" 2>&1)"
+      "PowerShell(psql -U postgres -h localhost -c \"\\\\l\" 2>&1)",
+      "Bash(git add *)",
+      "Bash(git restore *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -s -o /dev/null -w \"health check status: %{http_code}\\\\n\" https://brixen-backend.onrender.com/api/health)",
+      "Bash(curl -s https://brixen-backend.onrender.com/api/health)",
+      "Bash(curl -s -X POST https://brixen-backend.onrender.com/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@brixen.com\",\"password\":\"ChangeMe123!\"}')",
+      "Bash(node -e \"console.log\\('JWT_ACCESS_SECRET=' + require\\('crypto'\\).randomBytes\\(48\\).toString\\('hex'\\)\\)\")",
+      "Bash(node -e \"console.log\\('JWT_REFRESH_SECRET=' + require\\('crypto'\\).randomBytes\\(48\\).toString\\('hex'\\)\\)\")",
+      "Bash(curl -s -o /dev/null -w \"status: %{http_code}, time: %{time_total}s\\\\n\" https://brixen-backend.onrender.com/api/health)",
+      "Bash(nslookup brixen-backend.onrender.com)"
     ]
   }
 }

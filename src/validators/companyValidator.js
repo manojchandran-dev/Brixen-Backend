@@ -121,9 +121,29 @@ function validateStep3(req, res, next) {
   next();
 }
 
+const VALID_STATUSES = ['ACTIVE', 'INACTIVE'];
+
+function validateUpdateStatus(req, res, next) {
+  const { status } = req.body;
+  const errors = [];
+
+  if (!status || typeof status !== 'string' || !VALID_STATUSES.includes(status.toUpperCase())) {
+    errors.push(`status is required and must be one of: ${VALID_STATUSES.join(', ')}`);
+  } else {
+    req.body.status = status.toUpperCase();
+  }
+
+  if (errors.length) {
+    return res.status(400).json({ success: false, errors });
+  }
+
+  next();
+}
+
 module.exports = {
   validateCreateCompany,
   validateUpdateCompany,
   validateStep2,
   validateStep3,
+  validateUpdateStatus,
 };
