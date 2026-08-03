@@ -1,6 +1,13 @@
 const expenseCategoryService = require('../services/expenseCategoryService');
 const { success, error } = require('../utils/apiResponse');
 
+function parseId(raw) {
+  if (!/^\d+$/.test(raw)) {
+    return null;
+  }
+  return BigInt(raw);
+}
+
 async function createExpenseCategory(req, res) {
   const category = await expenseCategoryService.createExpenseCategory(req.body);
   return success(res, category, 201);
@@ -16,8 +23,8 @@ async function getExpenseCategories(req, res) {
 }
 
 async function getExpenseCategoryById(req, res) {
-  const id = parseInt(req.params.id, 10);
-  if (Number.isNaN(id)) {
+  const id = parseId(req.params.id);
+  if (id === null) {
     return error(res, 'Invalid expense category id', 400);
   }
 
@@ -30,8 +37,8 @@ async function getExpenseCategoryById(req, res) {
 }
 
 async function updateExpenseCategory(req, res) {
-  const id = parseInt(req.params.id, 10);
-  if (Number.isNaN(id)) {
+  const id = parseId(req.params.id);
+  if (id === null) {
     return error(res, 'Invalid expense category id', 400);
   }
 
@@ -45,8 +52,8 @@ async function updateExpenseCategory(req, res) {
 }
 
 async function deleteExpenseCategory(req, res) {
-  const id = parseInt(req.params.id, 10);
-  if (Number.isNaN(id)) {
+  const id = parseId(req.params.id);
+  if (id === null) {
     return error(res, 'Invalid expense category id', 400);
   }
 

@@ -1,11 +1,27 @@
+const { Prisma } = require('@prisma/client');
 const expenseCategoryRepository = require('../repositories/expenseCategoryRepository');
+const { generateExpenseCategoryId } = require('../utils/expenseCategoryId');
+
+const MAX_ID_ATTEMPTS = 5;
 
 async function createExpenseCategory(data) {
-  return expenseCategoryRepository.create({
-    name: data.name,
-    description: data.description,
-    status: data.status || 'ACTIVE',
-  });
+  for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt += 1) {
+    try {
+      return await expenseCategoryRepository.create({
+        id: generateExpenseCategoryId(),
+        name: data.name,
+        description: data.description,
+        status: data.status || 'ACTIVE',
+      });
+    } catch (err) {
+      const isDuplicateId = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
+      if (!isDuplicateId) {
+        throw err;
+      }
+    }
+  }
+
+  throw new Error('Failed to generate a unique expense category id, please retry');
 }
 
 async function getExpenseCategories({ page = 1, limit = 20, search = '' }) {

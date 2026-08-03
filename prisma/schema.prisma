@@ -45,7 +45,7 @@ model users {
 }
 
 model expense_categories {
-  id          Int       @id @default(autoincrement())
+  id          BigInt    @id @db.BigInt
   name        String    @db.VarChar(150)
   description String?
   status      String?   @default("ACTIVE") @db.VarChar(20)
