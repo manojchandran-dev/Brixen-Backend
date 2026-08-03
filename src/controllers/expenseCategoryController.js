@@ -1,11 +1,8 @@
 const expenseCategoryService = require('../services/expenseCategoryService');
 const { success, error } = require('../utils/apiResponse');
 
-function parseId(raw) {
-  if (!/^\d+$/.test(raw)) {
-    return null;
-  }
-  return BigInt(raw);
+function isValidId(raw) {
+  return /^EXCAT\d{11}$/.test(raw);
 }
 
 async function createExpenseCategory(req, res) {
@@ -23,8 +20,8 @@ async function getExpenseCategories(req, res) {
 }
 
 async function getExpenseCategoryById(req, res) {
-  const id = parseId(req.params.id);
-  if (id === null) {
+  const { id } = req.params;
+  if (!isValidId(id)) {
     return error(res, 'Invalid expense category id', 400);
   }
 
@@ -37,8 +34,8 @@ async function getExpenseCategoryById(req, res) {
 }
 
 async function updateExpenseCategory(req, res) {
-  const id = parseId(req.params.id);
-  if (id === null) {
+  const { id } = req.params;
+  if (!isValidId(id)) {
     return error(res, 'Invalid expense category id', 400);
   }
 
@@ -52,8 +49,8 @@ async function updateExpenseCategory(req, res) {
 }
 
 async function deleteExpenseCategory(req, res) {
-  const id = parseId(req.params.id);
-  if (id === null) {
+  const { id } = req.params;
+  if (!isValidId(id)) {
     return error(res, 'Invalid expense category id', 400);
   }
 
