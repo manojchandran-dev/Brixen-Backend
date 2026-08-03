@@ -44,6 +44,15 @@ model users {
   refresh_tokens refresh_tokens[]
 }
 
+model expense_categories {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(150)
+  description String?
+  status      String?   @default("ACTIVE") @db.VarChar(20)
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+}
+
 model refresh_tokens {
   id         Int       @id @default(autoincrement())
   user_id    Int

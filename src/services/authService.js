@@ -16,6 +16,10 @@ function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+function toUserResponse(user) {
+  return { id: user.id, email: user.email, role: user.role, hasPin: Boolean(user.pin_hash) };
+}
+
 async function issueTokens(user) {
   const accessToken = signAccessToken(user);
   const refreshToken = signRefreshToken(user);
@@ -43,7 +47,7 @@ async function login(email, password) {
 
   const tokens = await issueTokens(user);
   return {
-    user: { id: user.id, email: user.email, role: user.role },
+    user: toUserResponse(user),
     ...tokens,
   };
 }
@@ -127,7 +131,7 @@ async function verifyPin(refreshToken, pin) {
   await refreshTokenRepository.revoke(stored.id);
   const tokens = await issueTokens(user);
   return {
-    user: { id: user.id, email: user.email, role: user.role },
+    user: toUserResponse(user),
     ...tokens,
   };
 }
