@@ -1,5 +1,6 @@
 const { Resend } = require('resend');
 const { RESEND_API_KEY, RESEND_FROM_EMAIL } = require('../config');
+const { buildOtpEmail } = require('./emailTemplates');
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
@@ -8,11 +9,14 @@ async function sendOtpEmail(to, otp) {
     throw new Error('RESEND_API_KEY is not configured');
   }
 
+  const { html, text } = buildOtpEmail(otp);
+
   await resend.emails.send({
     from: RESEND_FROM_EMAIL,
     to,
     subject: 'Your Brixen verification code',
-    html: `<p>Your verification code is <strong>${otp}</strong>. It expires in 10 minutes.</p><p>If you didn't request this, you can ignore this email.</p>`,
+    html,
+    text,
   });
 }
 
