@@ -34,14 +34,27 @@ model companies {
 }
 
 model users {
-  id             Int              @id @default(autoincrement())
-  email          String           @unique @db.VarChar(150)
-  password_hash  String           @db.VarChar(255)
-  pin_hash       String?          @db.VarChar(255)
-  role           String           @default("user") @db.VarChar(20)
-  created_at     DateTime         @default(now()) @db.Timestamp(6)
-  updated_at     DateTime         @default(now()) @db.Timestamp(6)
-  refresh_tokens refresh_tokens[]
+  id               Int                @id @default(autoincrement())
+  email            String             @unique @db.VarChar(150)
+  password_hash    String             @db.VarChar(255)
+  pin_hash         String?            @db.VarChar(255)
+  role             String             @default("user") @db.VarChar(20)
+  created_at       DateTime           @default(now()) @db.Timestamp(6)
+  updated_at       DateTime           @default(now()) @db.Timestamp(6)
+  refresh_tokens   refresh_tokens[]
+  password_resets  password_resets[]
+}
+
+model password_resets {
+  id               Int       @id @default(autoincrement())
+  user_id          Int
+  otp_hash         String    @db.VarChar(255)
+  otp_expires_at   DateTime  @db.Timestamp(6)
+  reset_token_hash String?   @db.VarChar(255)
+  token_expires_at DateTime? @db.Timestamp(6)
+  consumed_at      DateTime? @db.Timestamp(6)
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  users            users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model expense_categories {

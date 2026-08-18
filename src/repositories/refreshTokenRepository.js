@@ -17,8 +17,16 @@ function revoke(id) {
   });
 }
 
+function revokeAllForUser(user_id) {
+  return prisma.refresh_tokens.updateMany({
+    where: { user_id, revoked_at: null },
+    data: { revoked_at: new Date() },
+  });
+}
+
 module.exports = {
   create,
   findValidByHash,
   revoke,
+  revokeAllForUser,
 };

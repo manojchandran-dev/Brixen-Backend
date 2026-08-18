@@ -3,7 +3,13 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const userRepository = require('../repositories/userRepository');
 const refreshTokenRepository = require('../repositories/refreshTokenRepository');
+const passwordResetRepository = require('../repositories/passwordResetRepository');
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../utils/tokens');
+const { sendOtpEmail } = require('../utils/mailer');
+
+const OTP_TTL_MS = 10 * 60 * 1000;
+const RESET_TOKEN_TTL_MS = 10 * 60 * 1000;
+const OTP_RESEND_COOLDOWN_MS = 30 * 1000;
 
 class AuthError extends Error {
   constructor(message, status = 401) {
@@ -136,6 +142,68 @@ async function verifyPin(refreshToken, pin) {
   };
 }
 
+function generateOtp() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function forgotPassword(email) {
+  const user = await userRepository.findByEmail(email);
+  if (!user) {
+    // Don't reveal whether the email exists.
+    return;
+  }
+
+  const latest = await passwordResetRepository.findLatestActiveByUserId(user.id);
+  if (latest && Date.now() - latest.created_at.getTime() < OTP_RESEND_COOLDOWN_MS) {
+    throw new AuthError('Please wait before requesting another code', 429);
+  }
+
+  const otp = generateOtp();
+  await passwordResetRepository.create({
+    user_id: user.id,
+    otp_hash: hashToken(otp),
+    otp_expires_at: new Date(Date.now() + OTP_TTL_MS),
+  });
+
+  await sendOtpEmail(user.email, otp);
+}
+
+async function verifyOtp(email, otp) {
+  const user = await userRepository.findByEmail(email);
+  if (!user) {
+    throw new AuthError('Invalid or expired code');
+  }
+
+  const record = await passwordResetRepository.findLatestActiveByUserId(user.id);
+  if (!record || record.otp_expires_at < new Date()) {
+    throw new AuthError('Invalid or expired code');
+  }
+
+  if (record.otp_hash !== hashToken(otp)) {
+    throw new AuthError('Invalid or expired code');
+  }
+
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  await passwordResetRepository.update(record.id, {
+    reset_token_hash: hashToken(resetToken),
+    token_expires_at: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+  });
+
+  return { resetToken };
+}
+
+async function resetPassword(resetToken, newPassword) {
+  const record = await passwordResetRepository.findValidByResetTokenHash(hashToken(resetToken));
+  if (!record) {
+    throw new AuthError('Invalid or expired reset token');
+  }
+
+  const password_hash = await bcrypt.hash(newPassword, 10);
+  await userRepository.update(record.user_id, { password_hash });
+  await passwordResetRepository.markConsumed(record.id);
+  await refreshTokenRepository.revokeAllForUser(record.user_id);
+}
+
 module.exports = {
   AuthError,
   login,
@@ -143,4 +211,7 @@ module.exports = {
   logout,
   setPin,
   verifyPin,
+  forgotPassword,
+  verifyOtp,
+  resetPassword,
 };

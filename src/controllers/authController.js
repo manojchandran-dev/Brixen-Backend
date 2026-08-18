@@ -63,10 +63,56 @@ async function verifyPin(req, res) {
   }
 }
 
+async function forgotPassword(req, res) {
+  const { email } = req.body;
+
+  try {
+    await authService.forgotPassword(email);
+  } catch (err) {
+    if (err instanceof authService.AuthError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+
+  return success(res, { message: 'If that email exists, we sent a verification code to it' });
+}
+
+async function verifyOtp(req, res) {
+  const { email, otp } = req.body;
+
+  try {
+    const result = await authService.verifyOtp(email, otp);
+    return success(res, result);
+  } catch (err) {
+    if (err instanceof authService.AuthError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
+async function resetPassword(req, res) {
+  const { resetToken, newPassword } = req.body;
+
+  try {
+    await authService.resetPassword(resetToken, newPassword);
+    return success(res, { message: 'Password reset successfully' });
+  } catch (err) {
+    if (err instanceof authService.AuthError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
 module.exports = {
   login,
   refresh,
   logout,
   setPin,
   verifyPin,
+  forgotPassword,
+  verifyOtp,
+  resetPassword,
 };
