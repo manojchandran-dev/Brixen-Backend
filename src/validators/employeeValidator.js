@@ -131,7 +131,40 @@ function validateUpdateEmployee(req, res, next) {
   next();
 }
 
+// Step 2 — Employment
+function validateEmployeeStep2(req, res, next) {
+  const errors = [];
+
+  validateOptionalStrings(req.body, errors);
+  validateEnum(req.body, 'employment_type', EMPLOYMENT_TYPES, errors);
+  validateEnum(req.body, 'status', STATUSES, errors);
+  validateDate(req.body, 'joining_date', errors);
+  validateManagerId(req.body, errors);
+  validateSalary(req.body, errors);
+
+  if (errors.length) {
+    return res.status(400).json({ success: false, errors });
+  }
+
+  next();
+}
+
+// Step 3 — Banking
+function validateEmployeeStep3(req, res, next) {
+  const errors = [];
+
+  validateOptionalStrings(req.body, errors);
+
+  if (errors.length) {
+    return res.status(400).json({ success: false, errors });
+  }
+
+  next();
+}
+
 module.exports = {
   validateCreateEmployee,
   validateUpdateEmployee,
+  validateEmployeeStep2,
+  validateEmployeeStep3,
 };

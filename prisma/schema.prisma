@@ -92,6 +92,7 @@ model employees {
   emergency_contact_name   String?     @db.VarChar(100)
   emergency_contact_phone  String?     @db.VarChar(20)
   status                   String?     @default("Active") @db.VarChar(20)
+  onboarding_status        String?     @default("pending") @db.VarChar(20)
   created_at               DateTime?   @default(now()) @db.Timestamp(6)
 }
 

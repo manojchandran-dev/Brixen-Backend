@@ -1,10 +1,37 @@
 const employeeRepository = require('../repositories/employeeRepository');
 
+const EMPLOYMENT_FIELDS = ['department', 'designation', 'joining_date', 'manager_id', 'employment_type', 'salary', 'status'];
+const EMPLOYMENT_MARKER = ['department', 'designation'];
+
+const BANKING_FIELDS = ['bank_name', 'account_number', 'ifsc_code', 'pan_number', 'aadhaar_number'];
+const BANKING_MARKER = ['bank_name', 'account_number', 'ifsc_code'];
+
 class EmployeeError extends Error {
   constructor(message, status = 400) {
     super(message);
     this.status = status;
   }
+}
+
+function isStepComplete(employee, fields) {
+  return fields.every((field) => employee[field] !== null && employee[field] !== undefined && employee[field] !== '');
+}
+
+function computeOnboardingStatus(employee) {
+  const employmentDone = isStepComplete(employee, EMPLOYMENT_MARKER);
+  const bankingDone = isStepComplete(employee, BANKING_MARKER);
+  return employmentDone && bankingDone ? 'completed' : 'pending';
+}
+
+async function recomputeOnboardingStatus(id) {
+  const employee = await employeeRepository.findById(id);
+  const onboarding_status = computeOnboardingStatus(employee);
+
+  if (employee.onboarding_status === onboarding_status) {
+    return employee;
+  }
+
+  return employeeRepository.update(id, { onboarding_status });
 }
 
 async function assertValidManager(managerId, selfId) {
@@ -23,10 +50,10 @@ async function assertValidManager(managerId, selfId) {
 }
 
 async function createEmployee(data) {
-  const { employee_code, id, ...rest } = data;
+  const { employee_code, id, onboarding_status, ...rest } = data;
   await assertValidManager(rest.manager_id);
 
-  const employee = await employeeRepository.create({ ...rest, employee_code: null });
+  const employee = await employeeRepository.create({ ...rest, employee_code: null, onboarding_status: 'pending' });
   const generatedCode = `EMP${String(employee.id).padStart(4, '0')}`;
   return employeeRepository.update(employee.id, { employee_code: generatedCode });
 }
@@ -69,13 +96,38 @@ async function getEmployeeById(id) {
 }
 
 async function updateEmployee(id, data) {
-  const { employee_code, id: _id, ...rest } = data;
+  const { employee_code, id: _id, onboarding_status, ...rest } = data;
 
   if (rest.manager_id !== undefined) {
     await assertValidManager(rest.manager_id, id);
   }
 
-  return employeeRepository.update(id, rest);
+  await employeeRepository.update(id, rest);
+  return recomputeOnboardingStatus(id);
+}
+
+async function updateEmployeeStep2(id, data) {
+  if (data.manager_id !== undefined) {
+    await assertValidManager(data.manager_id, id);
+  }
+
+  const payload = EMPLOYMENT_FIELDS.reduce((acc, field) => {
+    if (data[field] !== undefined) acc[field] = data[field];
+    return acc;
+  }, {});
+
+  await employeeRepository.update(id, payload);
+  return recomputeOnboardingStatus(id);
+}
+
+async function updateEmployeeStep3(id, data) {
+  const payload = BANKING_FIELDS.reduce((acc, field) => {
+    if (data[field] !== undefined) acc[field] = data[field];
+    return acc;
+  }, {});
+
+  await employeeRepository.update(id, payload);
+  return recomputeOnboardingStatus(id);
 }
 
 async function deleteEmployee(id) {
@@ -88,5 +140,7 @@ module.exports = {
   getEmployees,
   getEmployeeById,
   updateEmployee,
+  updateEmployeeStep2,
+  updateEmployeeStep3,
   deleteEmployee,
 };

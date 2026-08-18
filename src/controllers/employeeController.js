@@ -58,6 +58,43 @@ async function updateEmployee(req, res) {
   }
 }
 
+async function updateEmployeeStep2(req, res) {
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return error(res, 'Invalid employee id', 400);
+  }
+
+  const existing = await employeeService.getEmployeeById(id);
+  if (!existing) {
+    return error(res, 'Employee not found', 404);
+  }
+
+  try {
+    const employee = await employeeService.updateEmployeeStep2(id, req.body);
+    return success(res, employee);
+  } catch (err) {
+    if (err instanceof employeeService.EmployeeError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
+async function updateEmployeeStep3(req, res) {
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return error(res, 'Invalid employee id', 400);
+  }
+
+  const existing = await employeeService.getEmployeeById(id);
+  if (!existing) {
+    return error(res, 'Employee not found', 404);
+  }
+
+  const employee = await employeeService.updateEmployeeStep3(id, req.body);
+  return success(res, employee);
+}
+
 async function deleteEmployee(req, res) {
   const id = parseInt(req.params.id, 10);
   if (Number.isNaN(id)) {
@@ -78,5 +115,7 @@ module.exports = {
   getEmployees,
   getEmployeeById,
   updateEmployee,
+  updateEmployeeStep2,
+  updateEmployeeStep3,
   deleteEmployee,
 };
