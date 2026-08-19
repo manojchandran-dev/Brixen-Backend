@@ -52,6 +52,16 @@ function validateAmount(body, errors, { required } = {}) {
   }
 }
 
+function validateUnitId(body, errors) {
+  if (body.unit_id === undefined || body.unit_id === null) {
+    return;
+  }
+
+  if (typeof body.unit_id !== 'string' || !body.unit_id.trim()) {
+    errors.push('unit_id must be a non-empty string');
+  }
+}
+
 function validateCreateExpense(req, res, next) {
   const { category_id, title } = req.body;
   const errors = [];
@@ -64,6 +74,7 @@ function validateCreateExpense(req, res, next) {
     errors.push('title is required and must be a non-empty string');
   }
 
+  validateUnitId(req.body, errors);
   validateAmount(req.body, errors, { required: true });
   validateExpenseDate(req.body, errors);
   validatePaymentMethod(req.body, errors);
@@ -92,6 +103,7 @@ function validateUpdateExpense(req, res, next) {
     errors.push('title must be a non-empty string');
   }
 
+  validateUnitId(req.body, errors);
   validateAmount(req.body, errors, { required: false });
   validateExpenseDate(req.body, errors);
   validatePaymentMethod(req.body, errors);

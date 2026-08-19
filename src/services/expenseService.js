@@ -1,6 +1,7 @@
 const { Prisma } = require('@prisma/client');
 const expenseRepository = require('../repositories/expenseRepository');
 const expenseCategoryRepository = require('../repositories/expenseCategoryRepository');
+const unitRepository = require('../repositories/unitRepository');
 const { generateExpenseId } = require('../utils/expenseId');
 
 const MAX_ID_ATTEMPTS = 5;
@@ -19,14 +20,27 @@ async function assertValidCategory(category_id) {
   }
 }
 
+async function assertValidUnit(unit_id) {
+  if (unit_id === undefined || unit_id === null) {
+    return;
+  }
+
+  const unit = await unitRepository.findById(unit_id);
+  if (!unit) {
+    throw new ExpenseError('unit_id does not reference an existing unit');
+  }
+}
+
 async function createExpense(data) {
   await assertValidCategory(data.category_id);
+  await assertValidUnit(data.unit_id);
 
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt += 1) {
     try {
       return await expenseRepository.create({
         id: generateExpenseId(),
         category_id: data.category_id,
+        unit_id: data.unit_id,
         title: data.title,
         amount: data.amount,
         expense_date: data.expense_date,
@@ -45,12 +59,13 @@ async function createExpense(data) {
   throw new Error('Failed to generate a unique expense id, please retry');
 }
 
-async function getExpenses({ page = 1, limit = 20, search = '', category_id }) {
+async function getExpenses({ page = 1, limit = 20, search = '', category_id, unit_id }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
     ...(category_id ? { category_id } : {}),
+    ...(unit_id ? { unit_id } : {}),
     ...(search
       ? {
           OR: [
@@ -87,6 +102,10 @@ async function updateExpense(id, data) {
 
   if (rest.category_id !== undefined) {
     await assertValidCategory(rest.category_id);
+  }
+
+  if (rest.unit_id !== undefined) {
+    await assertValidUnit(rest.unit_id);
   }
 
   return expenseRepository.update(id, rest);

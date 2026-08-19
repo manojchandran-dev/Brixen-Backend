@@ -22,8 +22,9 @@ async function getExpenses(req, res) {
   const limit = parseInt(req.query.limit, 10) || 20;
   const search = req.query.search || '';
   const category_id = req.query.category_id || undefined;
+  const unit_id = req.query.unit_id || undefined;
 
-  const result = await expenseService.getExpenses({ page, limit, search, category_id });
+  const result = await expenseService.getExpenses({ page, limit, search, category_id, unit_id });
   return success(res, result);
 }
 
