@@ -4,6 +4,13 @@ const { generateExpenseCategoryId } = require('../utils/expenseCategoryId');
 
 const MAX_ID_ATTEMPTS = 5;
 
+class ExpenseCategoryError extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function createExpenseCategory(data) {
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt += 1) {
     try {
@@ -62,10 +69,22 @@ async function updateExpenseCategory(id, data) {
 }
 
 async function deleteExpenseCategory(id) {
-  return expenseCategoryRepository.delete(id);
+  try {
+    return await expenseCategoryRepository.delete(id);
+  } catch (err) {
+    const isForeignKeyRestrict =
+      (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') ||
+      /foreign key constraint/i.test(err.message || '');
+
+    if (isForeignKeyRestrict) {
+      throw new ExpenseCategoryError('Cannot delete this category while expenses still reference it', 409);
+    }
+    throw err;
+  }
 }
 
 module.exports = {
+  ExpenseCategoryError,
   createExpenseCategory,
   getExpenseCategories,
   getExpenseCategoryById,

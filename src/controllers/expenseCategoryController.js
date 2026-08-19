@@ -59,7 +59,15 @@ async function deleteExpenseCategory(req, res) {
     return error(res, 'Expense category not found', 404);
   }
 
-  await expenseCategoryService.deleteExpenseCategory(id);
+  try {
+    await expenseCategoryService.deleteExpenseCategory(id);
+  } catch (err) {
+    if (err instanceof expenseCategoryService.ExpenseCategoryError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+
   return res.status(204).send();
 }
 
