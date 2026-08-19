@@ -1,0 +1,86 @@
+const unitService = require('../services/unitService');
+const { success, error } = require('../utils/apiResponse');
+
+function isValidId(raw) {
+  return /^UNIT\d{12}$/.test(raw);
+}
+
+async function createUnit(req, res) {
+  try {
+    const unit = await unitService.createUnit(req.body);
+    return success(res, unit, 201);
+  } catch (err) {
+    if (err instanceof unitService.UnitError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
+async function getUnits(req, res) {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 20;
+  const search = req.query.search || '';
+
+  const result = await unitService.getUnits({ page, limit, search });
+  return success(res, result);
+}
+
+async function getUnitById(req, res) {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return error(res, 'Invalid unit id', 400);
+  }
+
+  const unit = await unitService.getUnitById(id);
+  if (!unit) {
+    return error(res, 'Unit not found', 404);
+  }
+
+  return success(res, unit);
+}
+
+async function updateUnit(req, res) {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return error(res, 'Invalid unit id', 400);
+  }
+
+  const existing = await unitService.getUnitById(id);
+  if (!existing) {
+    return error(res, 'Unit not found', 404);
+  }
+
+  try {
+    const unit = await unitService.updateUnit(id, req.body);
+    return success(res, unit);
+  } catch (err) {
+    if (err instanceof unitService.UnitError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
+async function deleteUnit(req, res) {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return error(res, 'Invalid unit id', 400);
+  }
+
+  const existing = await unitService.getUnitById(id);
+  if (!existing) {
+    return error(res, 'Unit not found', 404);
+  }
+
+  await unitService.deleteUnit(id);
+  return res.status(204).send();
+}
+
+module.exports = {
+  createUnit,
+  getUnits,
+  getUnitById,
+  updateUnit,
+  deleteUnit,
+};

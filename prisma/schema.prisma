@@ -90,6 +90,15 @@ model company_categories {
   updated_at  DateTime? @default(now()) @db.Timestamp(6)
 }
 
+model units {
+  id          String    @id @db.VarChar(16)
+  unit        String    @unique @db.VarChar(20)
+  full_form   String?   @db.VarChar(100)
+  description String?
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+}
+
 model employees {
   id                       Int         @id @default(autoincrement())
   employee_code            String?     @unique @db.VarChar(20)
