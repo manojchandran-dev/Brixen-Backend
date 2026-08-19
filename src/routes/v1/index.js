@@ -6,6 +6,7 @@ const employeeRoutes = require('./employees');
 const companyCategoryRoutes = require('./companyCategories');
 const expenseRoutes = require('./expenses');
 const unitRoutes = require('./units');
+const customerRoutes = require('./customers');
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/employees', employeeRoutes);
 router.use('/company-categories', companyCategoryRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/units', unitRoutes);
+router.use('/customers', customerRoutes);
 
 module.exports = router;
