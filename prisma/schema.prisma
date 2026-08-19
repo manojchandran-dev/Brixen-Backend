@@ -66,6 +66,15 @@ model expense_categories {
   updated_at  DateTime? @default(now()) @db.Timestamp(6)
 }
 
+model company_categories {
+  id          String    @id @db.VarChar(16)
+  name        String    @db.VarChar(150)
+  description String?
+  status      String?   @default("ACTIVE") @db.VarChar(20)
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+}
+
 model employees {
   id                       Int         @id @default(autoincrement())
   employee_code            String?     @unique @db.VarChar(20)

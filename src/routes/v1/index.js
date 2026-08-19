@@ -3,6 +3,7 @@ const companyRoutes = require('./companies');
 const authRoutes = require('./auth');
 const expenseCategoryRoutes = require('./expenseCategories');
 const employeeRoutes = require('./employees');
+const companyCategoryRoutes = require('./companyCategories');
 
 const router = Router();
 
@@ -10,5 +11,6 @@ router.use('/companies', companyRoutes);
 router.use('/auth', authRoutes);
 router.use('/expense-categories', expenseCategoryRoutes);
 router.use('/employees', employeeRoutes);
+router.use('/company-categories', companyCategoryRoutes);
 
 module.exports = router;
