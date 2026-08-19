@@ -7,6 +7,7 @@ const companyCategoryRoutes = require('./companyCategories');
 const expenseRoutes = require('./expenses');
 const unitRoutes = require('./units');
 const customerRoutes = require('./customers');
+const saleRoutes = require('./sales');
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use('/company-categories', companyCategoryRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/units', unitRoutes);
 router.use('/customers', customerRoutes);
+router.use('/sales', saleRoutes);
 
 module.exports = router;
