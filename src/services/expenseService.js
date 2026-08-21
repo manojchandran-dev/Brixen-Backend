@@ -59,13 +59,16 @@ async function createExpense(data) {
   throw new Error('Failed to generate a unique expense id, please retry');
 }
 
-async function getExpenses({ page = 1, limit = 20, search = '', category_id, unit_id }) {
+async function getExpenses({ page = 1, limit = 20, search = '', category_id, unit_id, from, to }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
     ...(category_id ? { category_id } : {}),
     ...(unit_id ? { unit_id } : {}),
+    ...(from || to
+      ? { expense_date: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
+      : {}),
     ...(search
       ? {
           OR: [

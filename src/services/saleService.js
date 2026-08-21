@@ -62,13 +62,14 @@ async function createSale(data) {
   throw new Error('Failed to generate a unique sale id, please retry');
 }
 
-async function getSales({ page = 1, limit = 20, search = '', customer_id, payment_status }) {
+async function getSales({ page = 1, limit = 20, search = '', customer_id, payment_status, from, to }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
     ...(customer_id ? { customer_id } : {}),
     ...(payment_status ? { payment_status } : {}),
+    ...(from || to ? { bill_date: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
     ...(search
       ? {
           OR: [

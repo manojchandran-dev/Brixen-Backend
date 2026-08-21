@@ -8,6 +8,8 @@ const expenseRoutes = require('./expenses');
 const unitRoutes = require('./units');
 const customerRoutes = require('./customers');
 const saleRoutes = require('./sales');
+const dashboardRoutes = require('./dashboard');
+const reportRoutes = require('./reports');
 
 const router = Router();
 
@@ -20,5 +22,7 @@ router.use('/expenses', expenseRoutes);
 router.use('/units', unitRoutes);
 router.use('/customers', customerRoutes);
 router.use('/sales', saleRoutes);
+router.use('/dashboard', dashboardRoutes);
+router.use('/reports', reportRoutes);
 
 module.exports = router;

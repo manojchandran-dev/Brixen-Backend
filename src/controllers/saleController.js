@@ -23,8 +23,10 @@ async function getSales(req, res) {
   const search = req.query.search || '';
   const customer_id = req.query.customer_id || undefined;
   const payment_status = req.query.payment_status || undefined;
+  const from = req.query.from ? new Date(req.query.from) : undefined;
+  const to = req.query.to ? new Date(req.query.to) : undefined;
 
-  const result = await saleService.getSales({ page, limit, search, customer_id, payment_status });
+  const result = await saleService.getSales({ page, limit, search, customer_id, payment_status, from, to });
   return success(res, result);
 }
 
