@@ -9,8 +9,12 @@ function validateOptionalStrings(body, errors) {
 }
 
 function validateCreateCustomer(req, res, next) {
-  const { name } = req.body;
+  const { name, company_id } = req.body;
   const errors = [];
+
+  if (company_id === undefined || company_id === null || !/^\d+$/.test(String(company_id))) {
+    errors.push('company_id is required and must be a positive integer');
+  }
 
   if (!name || typeof name !== 'string' || !name.trim()) {
     errors.push('name is required and must be a non-empty string');

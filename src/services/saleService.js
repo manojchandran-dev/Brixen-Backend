@@ -1,6 +1,7 @@
 const { Prisma } = require('@prisma/client');
 const saleRepository = require('../repositories/saleRepository');
 const customerRepository = require('../repositories/customerRepository');
+const companyRepository = require('../repositories/companyRepository');
 const { generateSaleId } = require('../utils/saleId');
 
 const MAX_ID_ATTEMPTS = 5;
@@ -12,14 +13,21 @@ class SaleError extends Error {
   }
 }
 
-async function assertValidCustomer(customer_id) {
+async function assertValidCompany(company_id) {
+  const company = await companyRepository.findById(company_id);
+  if (!company) {
+    throw new SaleError('company_id does not reference an existing company');
+  }
+}
+
+async function assertValidCustomer(customer_id, company_id) {
   if (customer_id === undefined || customer_id === null) {
     return;
   }
 
-  const customer = await customerRepository.findById(customer_id);
+  const customer = await customerRepository.findByIdAndCompany(customer_id, company_id);
   if (!customer) {
-    throw new SaleError('customer_id does not reference an existing customer');
+    throw new SaleError('customer_id does not reference an existing customer for this company');
   }
 }
 
@@ -30,8 +38,9 @@ function resolveTotal(subtotal, tax_amount, total_amount) {
   return Number(subtotal) + Number(tax_amount || 0);
 }
 
-async function createSale(data) {
-  await assertValidCustomer(data.customer_id);
+async function createSale(company_id, data) {
+  await assertValidCompany(company_id);
+  await assertValidCustomer(data.customer_id, company_id);
 
   const tax_amount = data.tax_amount ?? 0;
   const total_amount = resolveTotal(data.subtotal, tax_amount, data.total_amount);
@@ -40,6 +49,7 @@ async function createSale(data) {
     try {
       return await saleRepository.create({
         id: generateSaleId(),
+        company_id,
         bill_date: data.bill_date,
         customer_id: data.customer_id,
         invoice_type: data.invoice_type,
@@ -62,11 +72,12 @@ async function createSale(data) {
   throw new Error('Failed to generate a unique sale id, please retry');
 }
 
-async function getSales({ page = 1, limit = 20, search = '', customer_id, payment_status, from, to }) {
+async function getSales(company_id, { page = 1, limit = 20, search = '', customer_id, payment_status, from, to }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
+    company_id,
     ...(customer_id ? { customer_id } : {}),
     ...(payment_status ? { payment_status } : {}),
     ...(from || to ? { bill_date: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
@@ -97,19 +108,19 @@ async function getSales({ page = 1, limit = 20, search = '', customer_id, paymen
   };
 }
 
-async function getSaleById(id) {
-  return saleRepository.findById(id);
+async function getSaleById(id, company_id) {
+  return saleRepository.findByIdAndCompany(id, company_id);
 }
 
-async function updateSale(id, data) {
-  const { id: _id, ...rest } = data;
+async function updateSale(id, company_id, data) {
+  const { id: _id, company_id: _companyId, ...rest } = data;
 
   if (rest.customer_id !== undefined) {
-    await assertValidCustomer(rest.customer_id);
+    await assertValidCustomer(rest.customer_id, company_id);
   }
 
   if (rest.subtotal !== undefined || rest.tax_amount !== undefined) {
-    const existing = await saleRepository.findById(id);
+    const existing = await saleRepository.findByIdAndCompany(id, company_id);
     const subtotal = rest.subtotal !== undefined ? rest.subtotal : existing.subtotal;
     const tax_amount = rest.tax_amount !== undefined ? rest.tax_amount : existing.tax_amount;
     if (rest.total_amount === undefined) {

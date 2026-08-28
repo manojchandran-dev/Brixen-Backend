@@ -63,8 +63,12 @@ function validateUnitId(body, errors) {
 }
 
 function validateCreateExpense(req, res, next) {
-  const { category_id, title } = req.body;
+  const { category_id, title, company_id } = req.body;
   const errors = [];
+
+  if (company_id === undefined || company_id === null || !/^\d+$/.test(String(company_id))) {
+    errors.push('company_id is required and must be a positive integer');
+  }
 
   if (!category_id || typeof category_id !== 'string' || !category_id.trim()) {
     errors.push('category_id is required and must be a non-empty string');

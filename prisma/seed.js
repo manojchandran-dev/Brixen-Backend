@@ -76,7 +76,7 @@ async function seedSuperAdminCompany() {
 
   if (existing) {
     console.log(`Super admin company already exists: ${existing.company_code}`);
-    return;
+    return existing.id;
   }
 
   const company = await prisma.companies.create({
@@ -88,20 +88,21 @@ async function seedSuperAdminCompany() {
   });
 
   console.log(`Super admin company created: ${company.company_code} (id: ${company.id})`);
+  return company.id;
 }
 
-async function seedUnits() {
+async function seedUnits(company_id) {
   let created = 0;
   let skipped = 0;
 
   for (const unit of DEFAULT_UNITS) {
-    const existing = await prisma.units.findUnique({ where: { unit: unit.unit } });
+    const existing = await prisma.units.findFirst({ where: { unit: unit.unit, company_id } });
     if (existing) {
       skipped += 1;
       continue;
     }
 
-    await prisma.units.create({ data: { ...unit, id: generateUnitId() } });
+    await prisma.units.create({ data: { ...unit, id: generateUnitId(), company_id } });
     created += 1;
   }
 
@@ -110,8 +111,8 @@ async function seedUnits() {
 
 async function main() {
   await seedSuperAdminUser();
-  await seedSuperAdminCompany();
-  await seedUnits();
+  const company_id = await seedSuperAdminCompany();
+  await seedUnits(company_id);
 }
 
 main()

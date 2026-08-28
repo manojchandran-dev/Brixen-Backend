@@ -1,6 +1,10 @@
 function validateCreateUnit(req, res, next) {
-  const { unit, full_form, description } = req.body;
+  const { unit, full_form, description, company_id } = req.body;
   const errors = [];
+
+  if (company_id === undefined || company_id === null || !/^\d+$/.test(String(company_id))) {
+    errors.push('company_id is required and must be a positive integer');
+  }
 
   if (!unit || typeof unit !== 'string' || !unit.trim()) {
     errors.push('unit is required and must be a non-empty string');

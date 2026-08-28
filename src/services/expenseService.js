@@ -2,6 +2,7 @@ const { Prisma } = require('@prisma/client');
 const expenseRepository = require('../repositories/expenseRepository');
 const expenseCategoryRepository = require('../repositories/expenseCategoryRepository');
 const unitRepository = require('../repositories/unitRepository');
+const companyRepository = require('../repositories/companyRepository');
 const { generateExpenseId } = require('../utils/expenseId');
 
 const MAX_ID_ATTEMPTS = 5;
@@ -13,32 +14,41 @@ class ExpenseError extends Error {
   }
 }
 
-async function assertValidCategory(category_id) {
-  const category = await expenseCategoryRepository.findById(category_id);
-  if (!category) {
-    throw new ExpenseError('category_id does not reference an existing expense category');
+async function assertValidCompany(company_id) {
+  const company = await companyRepository.findById(company_id);
+  if (!company) {
+    throw new ExpenseError('company_id does not reference an existing company');
   }
 }
 
-async function assertValidUnit(unit_id) {
+async function assertValidCategory(category_id, company_id) {
+  const category = await expenseCategoryRepository.findByIdAndCompany(category_id, company_id);
+  if (!category) {
+    throw new ExpenseError('category_id does not reference an existing expense category for this company');
+  }
+}
+
+async function assertValidUnit(unit_id, company_id) {
   if (unit_id === undefined || unit_id === null) {
     return;
   }
 
-  const unit = await unitRepository.findById(unit_id);
+  const unit = await unitRepository.findByIdAndCompany(unit_id, company_id);
   if (!unit) {
-    throw new ExpenseError('unit_id does not reference an existing unit');
+    throw new ExpenseError('unit_id does not reference an existing unit for this company');
   }
 }
 
-async function createExpense(data) {
-  await assertValidCategory(data.category_id);
-  await assertValidUnit(data.unit_id);
+async function createExpense(company_id, data) {
+  await assertValidCompany(company_id);
+  await assertValidCategory(data.category_id, company_id);
+  await assertValidUnit(data.unit_id, company_id);
 
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt += 1) {
     try {
       return await expenseRepository.create({
         id: generateExpenseId(),
+        company_id,
         category_id: data.category_id,
         unit_id: data.unit_id,
         title: data.title,
@@ -59,11 +69,12 @@ async function createExpense(data) {
   throw new Error('Failed to generate a unique expense id, please retry');
 }
 
-async function getExpenses({ page = 1, limit = 20, search = '', category_id, unit_id, from, to }) {
+async function getExpenses(company_id, { page = 1, limit = 20, search = '', category_id, unit_id, from, to }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
+    company_id,
     ...(category_id ? { category_id } : {}),
     ...(unit_id ? { unit_id } : {}),
     ...(from || to
@@ -96,19 +107,19 @@ async function getExpenses({ page = 1, limit = 20, search = '', category_id, uni
   };
 }
 
-async function getExpenseById(id) {
-  return expenseRepository.findById(id);
+async function getExpenseById(id, company_id) {
+  return expenseRepository.findByIdAndCompany(id, company_id);
 }
 
-async function updateExpense(id, data) {
-  const { id: _id, ...rest } = data;
+async function updateExpense(id, company_id, data) {
+  const { id: _id, company_id: _companyId, ...rest } = data;
 
   if (rest.category_id !== undefined) {
-    await assertValidCategory(rest.category_id);
+    await assertValidCategory(rest.category_id, company_id);
   }
 
   if (rest.unit_id !== undefined) {
-    await assertValidUnit(rest.unit_id);
+    await assertValidUnit(rest.unit_id, company_id);
   }
 
   return expenseRepository.update(id, rest);

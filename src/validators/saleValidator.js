@@ -63,9 +63,16 @@ function validateEnum(body, field, allowed, errors) {
   body[field] = match;
 }
 
+function validateCompanyId(body, errors) {
+  if (body.company_id === undefined || body.company_id === null || !/^\d+$/.test(String(body.company_id))) {
+    errors.push('company_id is required and must be a positive integer');
+  }
+}
+
 function validateCreateSale(req, res, next) {
   const errors = [];
 
+  validateCompanyId(req.body, errors);
   validateCustomerId(req.body, errors);
   validateBillDate(req.body, errors);
   validateOptionalStrings(req.body, errors);

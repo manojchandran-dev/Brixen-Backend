@@ -1,5 +1,6 @@
 const { Prisma } = require('@prisma/client');
 const unitRepository = require('../repositories/unitRepository');
+const companyRepository = require('../repositories/companyRepository');
 const { generateUnitId } = require('../utils/unitId');
 
 const MAX_ID_ATTEMPTS = 5;
@@ -17,11 +18,21 @@ function isDuplicateField(err, field) {
   );
 }
 
-async function createUnit(data) {
+async function assertValidCompany(company_id) {
+  const company = await companyRepository.findById(company_id);
+  if (!company) {
+    throw new UnitError('company_id does not reference an existing company');
+  }
+}
+
+async function createUnit(company_id, data) {
+  await assertValidCompany(company_id);
+
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt += 1) {
     try {
       return await unitRepository.create({
         id: generateUnitId(),
+        company_id,
         unit: data.unit,
         full_form: data.full_form,
         description: data.description,
@@ -39,19 +50,22 @@ async function createUnit(data) {
   throw new Error('Failed to generate a unique unit id, please retry');
 }
 
-async function getUnits({ page = 1, limit = 20, search = '' }) {
+async function getUnits(company_id, { page = 1, limit = 20, search = '' }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
-  const where = search
-    ? {
-        OR: [
-          { unit: { contains: search, mode: 'insensitive' } },
-          { full_form: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-        ],
-      }
-    : {};
+  const where = {
+    company_id,
+    ...(search
+      ? {
+          OR: [
+            { unit: { contains: search, mode: 'insensitive' } },
+            { full_form: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
 
   const [data, total] = await Promise.all([
     unitRepository.findMany({ where, skip, take, orderBy: { created_at: 'desc' } }),
@@ -69,8 +83,8 @@ async function getUnits({ page = 1, limit = 20, search = '' }) {
   };
 }
 
-async function getUnitById(id) {
-  return unitRepository.findById(id);
+async function getUnitById(id, company_id) {
+  return unitRepository.findByIdAndCompany(id, company_id);
 }
 
 async function updateUnit(id, data) {

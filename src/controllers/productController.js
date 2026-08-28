@@ -1,13 +1,19 @@
 const productService = require('../services/productService');
 const { success, error } = require('../utils/apiResponse');
+const { parseCompanyId } = require('../utils/companyScope');
 
 function isValidId(raw) {
   return /^PROD\d{12}$/.test(raw);
 }
 
 async function createProduct(req, res) {
+  const company_id = parseCompanyId(req.body.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
+
   try {
-    const product = await productService.createProduct(req.body);
+    const product = await productService.createProduct(company_id, req.body);
     return success(res, product, 201);
   } catch (err) {
     if (err instanceof productService.ProductError) {
@@ -18,23 +24,32 @@ async function createProduct(req, res) {
 }
 
 async function getProducts(req, res) {
+  const company_id = parseCompanyId(req.query.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
+
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 20;
   const search = req.query.search || '';
   const category_id = req.query.category_id || undefined;
   const status = req.query.status || undefined;
 
-  const result = await productService.getProducts({ page, limit, search, category_id, status });
+  const result = await productService.getProducts(company_id, { page, limit, search, category_id, status });
   return success(res, result);
 }
 
 async function getProductById(req, res) {
   const { id } = req.params;
+  const company_id = parseCompanyId(req.query.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
   if (!isValidId(id)) {
     return error(res, 'Invalid product id', 400);
   }
 
-  const product = await productService.getProductById(id);
+  const product = await productService.getProductById(id, company_id);
   if (!product) {
     return error(res, 'Product not found', 404);
   }
@@ -44,17 +59,21 @@ async function getProductById(req, res) {
 
 async function updateProduct(req, res) {
   const { id } = req.params;
+  const company_id = parseCompanyId(req.query.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
   if (!isValidId(id)) {
     return error(res, 'Invalid product id', 400);
   }
 
-  const existing = await productService.getProductById(id);
+  const existing = await productService.getProductById(id, company_id);
   if (!existing) {
     return error(res, 'Product not found', 404);
   }
 
   try {
-    const product = await productService.updateProduct(id, req.body);
+    const product = await productService.updateProduct(id, company_id, req.body);
     return success(res, product);
   } catch (err) {
     if (err instanceof productService.ProductError) {
@@ -66,17 +85,21 @@ async function updateProduct(req, res) {
 
 async function updateProductStep2(req, res) {
   const { id } = req.params;
+  const company_id = parseCompanyId(req.query.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
   if (!isValidId(id)) {
     return error(res, 'Invalid product id', 400);
   }
 
-  const existing = await productService.getProductById(id);
+  const existing = await productService.getProductById(id, company_id);
   if (!existing) {
     return error(res, 'Product not found', 404);
   }
 
   try {
-    const product = await productService.updateProductStep2(id, req.body);
+    const product = await productService.updateProductStep2(id, company_id, req.body);
     return success(res, product);
   } catch (err) {
     if (err instanceof productService.ProductError) {
@@ -88,11 +111,15 @@ async function updateProductStep2(req, res) {
 
 async function updateProductStep3(req, res) {
   const { id } = req.params;
+  const company_id = parseCompanyId(req.query.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
   if (!isValidId(id)) {
     return error(res, 'Invalid product id', 400);
   }
 
-  const existing = await productService.getProductById(id);
+  const existing = await productService.getProductById(id, company_id);
   if (!existing) {
     return error(res, 'Product not found', 404);
   }
@@ -103,11 +130,15 @@ async function updateProductStep3(req, res) {
 
 async function updateProductStep4(req, res) {
   const { id } = req.params;
+  const company_id = parseCompanyId(req.query.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
   if (!isValidId(id)) {
     return error(res, 'Invalid product id', 400);
   }
 
-  const existing = await productService.getProductById(id);
+  const existing = await productService.getProductById(id, company_id);
   if (!existing) {
     return error(res, 'Product not found', 404);
   }
@@ -118,11 +149,15 @@ async function updateProductStep4(req, res) {
 
 async function deleteProduct(req, res) {
   const { id } = req.params;
+  const company_id = parseCompanyId(req.query.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
   if (!isValidId(id)) {
     return error(res, 'Invalid product id', 400);
   }
 
-  const existing = await productService.getProductById(id);
+  const existing = await productService.getProductById(id, company_id);
   if (!existing) {
     return error(res, 'Product not found', 404);
   }

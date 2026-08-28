@@ -80,8 +80,12 @@ function validateSalary(body, errors) {
 }
 
 function validateCreateEmployee(req, res, next) {
-  const { first_name } = req.body;
+  const { first_name, company_id } = req.body;
   const errors = [];
+
+  if (company_id === undefined || company_id === null || !/^\d+$/.test(String(company_id))) {
+    errors.push('company_id is required and must be a positive integer');
+  }
 
   if (!first_name || typeof first_name !== 'string' || !first_name.trim()) {
     errors.push('first_name is required and must be a non-empty string');

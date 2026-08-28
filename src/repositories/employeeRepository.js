@@ -16,6 +16,10 @@ function findById(id) {
   return prisma.employees.findUnique({ where: { id } });
 }
 
+function findByIdAndCompany(id, company_id) {
+  return prisma.employees.findFirst({ where: { id, company_id } });
+}
+
 function update(id, data) {
   return prisma.employees.update({
     where: { id },
@@ -32,6 +36,7 @@ module.exports = {
   findMany,
   count,
   findById,
+  findByIdAndCompany,
   update,
   delete: deleteById,
 };

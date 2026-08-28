@@ -59,8 +59,12 @@ function validateGalleryUrls(body, errors) {
 
 // Step 1 — Basic Info
 function validateCreateProduct(req, res, next) {
-  const { product_name } = req.body;
+  const { product_name, company_id } = req.body;
   const errors = [];
+
+  if (company_id === undefined || company_id === null || !/^\d+$/.test(String(company_id))) {
+    errors.push('company_id is required and must be a positive integer');
+  }
 
   if (!product_name || typeof product_name !== 'string' || !product_name.trim()) {
     errors.push('product_name is required and must be a non-empty string');

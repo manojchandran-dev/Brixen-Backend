@@ -2,6 +2,7 @@ const { Prisma } = require('@prisma/client');
 const productRepository = require('../repositories/productRepository');
 const productCategoryRepository = require('../repositories/productCategoryRepository');
 const unitRepository = require('../repositories/unitRepository');
+const companyRepository = require('../repositories/companyRepository');
 const { generateProductId } = require('../utils/productId');
 
 const MAX_ID_ATTEMPTS = 5;
@@ -17,25 +18,32 @@ class ProductError extends Error {
   }
 }
 
-async function assertValidCategory(category_id) {
+async function assertValidCompany(company_id) {
+  const company = await companyRepository.findById(company_id);
+  if (!company) {
+    throw new ProductError('company_id does not reference an existing company');
+  }
+}
+
+async function assertValidCategory(category_id, company_id) {
   if (category_id === undefined || category_id === null) {
     return;
   }
 
-  const category = await productCategoryRepository.findById(category_id);
+  const category = await productCategoryRepository.findByIdAndCompany(category_id, company_id);
   if (!category) {
-    throw new ProductError('category_id does not reference an existing product category');
+    throw new ProductError('category_id does not reference an existing product category for this company');
   }
 }
 
-async function assertValidUnit(unit_id) {
+async function assertValidUnit(unit_id, company_id) {
   if (unit_id === undefined || unit_id === null) {
     return;
   }
 
-  const unit = await unitRepository.findById(unit_id);
+  const unit = await unitRepository.findByIdAndCompany(unit_id, company_id);
   if (!unit) {
-    throw new ProductError('unit_id does not reference an existing unit');
+    throw new ProductError('unit_id does not reference an existing unit for this company');
   }
 }
 
@@ -58,14 +66,16 @@ async function recomputeOnboardingStatus(id) {
   return productRepository.update(id, { onboarding_status });
 }
 
-async function createProduct(data) {
-  const { id, onboarding_status, ...rest } = data;
-  await assertValidCategory(rest.category_id);
+async function createProduct(company_id, data) {
+  const { id, onboarding_status, company_id: _companyId, ...rest } = data;
+  await assertValidCompany(company_id);
+  await assertValidCategory(rest.category_id, company_id);
 
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt += 1) {
     try {
       return await productRepository.create({
         id: generateProductId(),
+        company_id,
         product_name: rest.product_name,
         category_id: rest.category_id,
         gender: rest.gender,
@@ -83,11 +93,12 @@ async function createProduct(data) {
   throw new Error('Failed to generate a unique product id, please retry');
 }
 
-async function getProducts({ page = 1, limit = 20, search = '', category_id, status }) {
+async function getProducts(company_id, { page = 1, limit = 20, search = '', category_id, status }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
+    company_id,
     ...(category_id ? { category_id } : {}),
     ...(status ? { status } : {}),
     ...(search
@@ -117,27 +128,27 @@ async function getProducts({ page = 1, limit = 20, search = '', category_id, sta
   };
 }
 
-async function getProductById(id) {
-  return productRepository.findById(id);
+async function getProductById(id, company_id) {
+  return productRepository.findByIdAndCompany(id, company_id);
 }
 
-async function updateProduct(id, data) {
-  const { id: _id, onboarding_status, ...rest } = data;
+async function updateProduct(id, company_id, data) {
+  const { id: _id, onboarding_status, company_id: _companyId, ...rest } = data;
 
   if (rest.category_id !== undefined) {
-    await assertValidCategory(rest.category_id);
+    await assertValidCategory(rest.category_id, company_id);
   }
   if (rest.unit_id !== undefined) {
-    await assertValidUnit(rest.unit_id);
+    await assertValidUnit(rest.unit_id, company_id);
   }
 
   await productRepository.update(id, rest);
   return recomputeOnboardingStatus(id);
 }
 
-async function updateProductStep2(id, data) {
+async function updateProductStep2(id, company_id, data) {
   if (data.unit_id !== undefined) {
-    await assertValidUnit(data.unit_id);
+    await assertValidUnit(data.unit_id, company_id);
   }
 
   const payload = STEP2_FIELDS.reduce((acc, field) => {

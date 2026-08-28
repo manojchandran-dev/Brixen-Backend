@@ -8,41 +8,50 @@ datasource db {
 }
 
 model companies {
-  id                Int       @id @default(autoincrement())
-  company_code      String    @unique @db.VarChar(20)
-  company_name      String    @db.VarChar(150)
-  owner_name        String?   @db.VarChar(100)
-  phone             String?   @db.VarChar(20)
-  email             String?   @db.VarChar(100)
-  gst_number        String?   @db.VarChar(20)
-  address           String?
-  city              String?   @db.VarChar(50)
-  state             String?   @db.VarChar(50)
-  pincode           String?   @db.VarChar(10)
-  industry_type     String?   @db.VarChar(50)
-  subscription_plan String?   @default("FREE") @db.VarChar(30)
-  status            String?   @default("ACTIVE") @db.VarChar(20)
-  entity_type       String?   @db.VarChar(50)
-  pan_card          String?   @db.VarChar(10)
-  employee_count    String?   @db.VarChar(20)
-  founded_year      Int?
-  secondary_email   String?   @db.VarChar(100)
-  website           String?   @db.VarChar(150)
-  onboarding_status String?   @default("pending") @db.VarChar(20)
-  created_at        DateTime? @default(now()) @db.Timestamp(6)
-  updated_at        DateTime? @default(now()) @db.Timestamp(6)
+  id                 Int                  @id @default(autoincrement())
+  company_code       String               @unique @db.VarChar(20)
+  company_name       String               @db.VarChar(150)
+  owner_name         String?              @db.VarChar(100)
+  phone              String?              @db.VarChar(20)
+  email              String?              @db.VarChar(100)
+  gst_number         String?              @db.VarChar(20)
+  address            String?
+  city               String?              @db.VarChar(50)
+  state              String?              @db.VarChar(50)
+  pincode            String?              @db.VarChar(10)
+  industry_type      String?              @db.VarChar(50)
+  subscription_plan  String?              @default("FREE") @db.VarChar(30)
+  status             String?              @default("ACTIVE") @db.VarChar(20)
+  entity_type        String?              @db.VarChar(50)
+  pan_card           String?              @db.VarChar(10)
+  employee_count     String?              @db.VarChar(20)
+  founded_year       Int?
+  secondary_email    String?              @db.VarChar(100)
+  website            String?              @db.VarChar(150)
+  onboarding_status  String?              @default("pending") @db.VarChar(20)
+  created_at         DateTime?            @default(now()) @db.Timestamp(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamp(6)
+  expense_categories expense_categories[]
+  expenses           expenses[]
+  company_categories company_categories[]
+  product_categories product_categories[]
+  units              units[]
+  products           products[]
+  employees          employees[]
+  customers          customers[]
+  sales              sales[]
 }
 
 model users {
-  id               Int                @id @default(autoincrement())
-  email            String             @unique @db.VarChar(150)
-  password_hash    String             @db.VarChar(255)
-  pin_hash         String?            @db.VarChar(255)
-  role             String             @default("user") @db.VarChar(20)
-  created_at       DateTime           @default(now()) @db.Timestamp(6)
-  updated_at       DateTime           @default(now()) @db.Timestamp(6)
-  refresh_tokens   refresh_tokens[]
-  password_resets  password_resets[]
+  id              Int               @id @default(autoincrement())
+  email           String            @unique @db.VarChar(150)
+  password_hash   String            @db.VarChar(255)
+  pin_hash        String?           @db.VarChar(255)
+  role            String            @default("user") @db.VarChar(20)
+  created_at      DateTime          @default(now()) @db.Timestamp(6)
+  updated_at      DateTime          @default(now()) @db.Timestamp(6)
+  refresh_tokens  refresh_tokens[]
+  password_resets password_resets[]
 }
 
 model password_resets {
@@ -59,6 +68,8 @@ model password_resets {
 
 model expense_categories {
   id          String     @id @db.VarChar(16)
+  company_id  Int
+  companies   companies  @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   name        String     @db.VarChar(150)
   description String?
   status      String?    @default("ACTIVE") @db.VarChar(20)
@@ -69,6 +80,8 @@ model expense_categories {
 
 model expenses {
   id                 String             @id @db.VarChar(16)
+  company_id         Int
+  companies          companies          @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   category_id        String
   expense_categories expense_categories @relation(fields: [category_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   unit_id            String?
@@ -85,6 +98,8 @@ model expenses {
 
 model company_categories {
   id          String    @id @db.VarChar(16)
+  company_id  Int
+  companies   companies @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   name        String    @db.VarChar(150)
   description String?
   status      String?   @default("ACTIVE") @db.VarChar(20)
@@ -94,6 +109,8 @@ model company_categories {
 
 model product_categories {
   id          String     @id @db.VarChar(16)
+  company_id  Int
+  companies   companies  @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   name        String     @db.VarChar(150)
   description String?
   status      String?    @default("ACTIVE") @db.VarChar(20)
@@ -104,68 +121,80 @@ model product_categories {
 
 model units {
   id          String     @id @db.VarChar(16)
-  unit        String     @unique @db.VarChar(20)
+  company_id  Int
+  companies   companies  @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  unit        String     @db.VarChar(20)
   full_form   String?    @db.VarChar(100)
   description String?
   created_at  DateTime?  @default(now()) @db.Timestamp(6)
   updated_at  DateTime?  @default(now()) @db.Timestamp(6)
   expenses    expenses[]
   products    products[]
+
+  @@unique([company_id, unit])
 }
 
 model products {
-  id                  String              @id @db.VarChar(16)
-  product_name        String              @db.VarChar(200)
-  category_id         String?
-  product_categories  product_categories? @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  gender              String              @db.VarChar(20)
-  design_pattern      String?             @db.VarChar(100)
-  unit_id             String?
-  units               units?              @relation(fields: [unit_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  color               String?             @db.VarChar(50)
-  size                String?             @db.VarChar(50)
-  cost_price          Decimal?            @db.Decimal(12, 2)
-  retail_price        Decimal?            @db.Decimal(12, 2)
-  wholesale_price     Decimal?            @db.Decimal(12, 2)
-  gallery_urls        String[]
-  status              String?             @default("Active") @db.VarChar(20)
-  onboarding_status   String?             @default("pending") @db.VarChar(20)
-  created_at          DateTime?           @default(now()) @db.Timestamp(6)
-  updated_at          DateTime?           @default(now()) @db.Timestamp(6)
+  id                 String              @id @db.VarChar(16)
+  company_id         Int
+  companies          companies           @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  product_name       String              @db.VarChar(200)
+  category_id        String?
+  product_categories product_categories? @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  gender             String              @db.VarChar(20)
+  design_pattern     String?             @db.VarChar(100)
+  unit_id            String?
+  units              units?              @relation(fields: [unit_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  color              String?             @db.VarChar(50)
+  size               String?             @db.VarChar(50)
+  cost_price         Decimal?            @db.Decimal(12, 2)
+  retail_price       Decimal?            @db.Decimal(12, 2)
+  wholesale_price    Decimal?            @db.Decimal(12, 2)
+  gallery_urls       String[]
+  status             String?             @default("Active") @db.VarChar(20)
+  onboarding_status  String?             @default("pending") @db.VarChar(20)
+  created_at         DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at         DateTime?           @default(now()) @db.Timestamp(6)
 }
 
 model employees {
-  id                       Int         @id @default(autoincrement())
-  employee_code            String?     @unique @db.VarChar(20)
-  first_name               String      @db.VarChar(100)
-  last_name                String?     @db.VarChar(100)
-  gender                   String?     @db.VarChar(20)
-  date_of_birth            DateTime?   @db.Date
-  email                    String?     @db.VarChar(150)
-  phone                    String?     @db.VarChar(20)
-  address                  String?
-  joining_date             DateTime?   @db.Date
-  department               String?     @db.VarChar(100)
-  designation              String?     @db.VarChar(100)
-  manager_id               Int?
-  manager                  employees?  @relation("EmployeeManager", fields: [manager_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  reports                  employees[] @relation("EmployeeManager")
-  employment_type          String?     @db.VarChar(30)
-  salary                   Decimal?    @db.Decimal(12, 2)
-  pan_number               String?     @db.VarChar(10)
-  aadhaar_number           String?     @db.VarChar(20)
-  bank_name                String?     @db.VarChar(100)
-  account_number           String?     @db.VarChar(30)
-  ifsc_code                String?     @db.VarChar(15)
-  emergency_contact_name   String?     @db.VarChar(100)
-  emergency_contact_phone  String?     @db.VarChar(20)
-  status                   String?     @default("Active") @db.VarChar(20)
-  onboarding_status        String?     @default("pending") @db.VarChar(20)
-  created_at               DateTime?   @default(now()) @db.Timestamp(6)
+  id                      Int         @id @default(autoincrement())
+  company_id              Int
+  companies               companies   @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  employee_code           String?     @db.VarChar(20)
+  first_name              String      @db.VarChar(100)
+  last_name               String?     @db.VarChar(100)
+  gender                  String?     @db.VarChar(20)
+  date_of_birth           DateTime?   @db.Date
+  email                   String?     @db.VarChar(150)
+  phone                   String?     @db.VarChar(20)
+  address                 String?
+  joining_date            DateTime?   @db.Date
+  department              String?     @db.VarChar(100)
+  designation             String?     @db.VarChar(100)
+  manager_id              Int?
+  manager                 employees?  @relation("EmployeeManager", fields: [manager_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  reports                 employees[] @relation("EmployeeManager")
+  employment_type         String?     @db.VarChar(30)
+  salary                  Decimal?    @db.Decimal(12, 2)
+  pan_number              String?     @db.VarChar(10)
+  aadhaar_number          String?     @db.VarChar(20)
+  bank_name               String?     @db.VarChar(100)
+  account_number          String?     @db.VarChar(30)
+  ifsc_code               String?     @db.VarChar(15)
+  emergency_contact_name  String?     @db.VarChar(100)
+  emergency_contact_phone String?     @db.VarChar(20)
+  status                  String?     @default("Active") @db.VarChar(20)
+  onboarding_status       String?     @default("pending") @db.VarChar(20)
+  created_at              DateTime?   @default(now()) @db.Timestamp(6)
+
+  @@unique([company_id, employee_code])
 }
 
 model customers {
   id         String    @id @db.VarChar(16)
+  company_id Int
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   name       String    @db.VarChar(150)
   shop_name  String?   @db.VarChar(150)
   phone      String?   @db.VarChar(20)
@@ -179,6 +208,8 @@ model customers {
 
 model sales {
   id             String     @id @db.VarChar(16)
+  company_id     Int
+  companies      companies  @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   bill_date      DateTime?  @db.Date
   customer_id    String?
   customers      customers? @relation(fields: [customer_id], references: [id], onDelete: SetNull, onUpdate: NoAction)

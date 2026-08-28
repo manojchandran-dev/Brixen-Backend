@@ -1,4 +1,5 @@
 const employeeRepository = require('../repositories/employeeRepository');
+const companyRepository = require('../repositories/companyRepository');
 
 const EMPLOYMENT_FIELDS = ['department', 'designation', 'joining_date', 'manager_id', 'employment_type', 'salary', 'status'];
 const EMPLOYMENT_MARKER = ['department', 'designation'];
@@ -34,7 +35,14 @@ async function recomputeOnboardingStatus(id) {
   return employeeRepository.update(id, { onboarding_status });
 }
 
-async function assertValidManager(managerId, selfId) {
+async function assertValidCompany(company_id) {
+  const company = await companyRepository.findById(company_id);
+  if (!company) {
+    throw new EmployeeError('company_id does not reference an existing company');
+  }
+}
+
+async function assertValidManager(managerId, company_id, selfId) {
   if (managerId === undefined || managerId === null) {
     return;
   }
@@ -43,37 +51,46 @@ async function assertValidManager(managerId, selfId) {
     throw new EmployeeError('An employee cannot be their own manager');
   }
 
-  const manager = await employeeRepository.findById(managerId);
+  const manager = await employeeRepository.findByIdAndCompany(managerId, company_id);
   if (!manager) {
-    throw new EmployeeError('manager_id does not reference an existing employee');
+    throw new EmployeeError('manager_id does not reference an existing employee for this company');
   }
 }
 
-async function createEmployee(data) {
-  const { employee_code, id, onboarding_status, ...rest } = data;
-  await assertValidManager(rest.manager_id);
+async function createEmployee(company_id, data) {
+  const { employee_code, id, onboarding_status, company_id: _companyId, ...rest } = data;
+  await assertValidCompany(company_id);
+  await assertValidManager(rest.manager_id, company_id);
 
-  const employee = await employeeRepository.create({ ...rest, employee_code: null, onboarding_status: 'pending' });
+  const employee = await employeeRepository.create({
+    ...rest,
+    company_id,
+    employee_code: null,
+    onboarding_status: 'pending',
+  });
   const generatedCode = `EMP${String(employee.id).padStart(4, '0')}`;
   return employeeRepository.update(employee.id, { employee_code: generatedCode });
 }
 
-async function getEmployees({ page = 1, limit = 20, search = '' }) {
+async function getEmployees(company_id, { page = 1, limit = 20, search = '' }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
-  const where = search
-    ? {
-        OR: [
-          { first_name: { contains: search, mode: 'insensitive' } },
-          { last_name: { contains: search, mode: 'insensitive' } },
-          { employee_code: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
-          { department: { contains: search, mode: 'insensitive' } },
-          { designation: { contains: search, mode: 'insensitive' } },
-        ],
-      }
-    : {};
+  const where = {
+    company_id,
+    ...(search
+      ? {
+          OR: [
+            { first_name: { contains: search, mode: 'insensitive' } },
+            { last_name: { contains: search, mode: 'insensitive' } },
+            { employee_code: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { department: { contains: search, mode: 'insensitive' } },
+            { designation: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
 
   const [data, total] = await Promise.all([
     employeeRepository.findMany({ where, skip, take, orderBy: { created_at: 'desc' } }),
@@ -91,24 +108,24 @@ async function getEmployees({ page = 1, limit = 20, search = '' }) {
   };
 }
 
-async function getEmployeeById(id) {
-  return employeeRepository.findById(id);
+async function getEmployeeById(id, company_id) {
+  return employeeRepository.findByIdAndCompany(id, company_id);
 }
 
-async function updateEmployee(id, data) {
-  const { employee_code, id: _id, onboarding_status, ...rest } = data;
+async function updateEmployee(id, company_id, data) {
+  const { employee_code, id: _id, onboarding_status, company_id: _companyId, ...rest } = data;
 
   if (rest.manager_id !== undefined) {
-    await assertValidManager(rest.manager_id, id);
+    await assertValidManager(rest.manager_id, company_id, id);
   }
 
   await employeeRepository.update(id, rest);
   return recomputeOnboardingStatus(id);
 }
 
-async function updateEmployeeStep2(id, data) {
+async function updateEmployeeStep2(id, company_id, data) {
   if (data.manager_id !== undefined) {
-    await assertValidManager(data.manager_id, id);
+    await assertValidManager(data.manager_id, company_id, id);
   }
 
   const payload = EMPLOYMENT_FIELDS.reduce((acc, field) => {
