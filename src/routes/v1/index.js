@@ -12,6 +12,7 @@ const dashboardRoutes = require('./dashboard');
 const reportRoutes = require('./reports');
 const productCategoryRoutes = require('./productCategories');
 const productRoutes = require('./products');
+const moduleRoutes = require('./modules');
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/reports', reportRoutes);
 router.use('/product-categories', productCategoryRoutes);
 router.use('/products', productRoutes);
+router.use('/modules', moduleRoutes);
 
 module.exports = router;

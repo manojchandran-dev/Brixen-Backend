@@ -3,6 +3,27 @@ const prisma = require('../src/prisma/client');
 const { ADMIN_EMAIL, ADMIN_PASSWORD } = require('../src/config');
 const { generateCompanyCode } = require('../src/utils/companyCode');
 const { generateUnitId } = require('../src/utils/unitId');
+const { generateModuleId } = require('../src/utils/moduleId');
+
+const DEFAULT_MODULES = [
+  { name: 'Companies', description: 'All companies' },
+  { name: 'Permissions', description: 'Access control' },
+  { name: 'Employees', description: 'Manage staff' },
+  { name: 'Sales', description: 'Invoices' },
+  { name: 'Customers', description: 'Customer records' },
+  { name: 'Expenses', description: 'Track spending' },
+  { name: 'Products', description: 'Garments catalog' },
+  {
+    name: 'Masters',
+    description: 'Categories & units',
+    children: [
+      { name: 'Company Category', description: 'Company types' },
+      { name: 'Expense Category', description: 'Spending types' },
+      { name: 'Units', description: 'Measurement units' },
+      { name: 'Product Category', description: 'Garments categories' },
+    ],
+  },
+];
 
 const DEFAULT_UNITS = [
   { unit: 'pcs', full_form: 'Pieces', description: 'Used to measure individual items or products.' },
@@ -109,10 +130,41 @@ async function seedUnits(company_id) {
   console.log(`Units seeded: ${created} created, ${skipped} already existed`);
 }
 
+async function seedModules() {
+  let created = 0;
+  let skipped = 0;
+
+  for (const mod of DEFAULT_MODULES) {
+    const { children, ...moduleData } = mod;
+
+    let existing = await prisma.modules.findFirst({ where: { name: moduleData.name, parent_id: null } });
+    if (!existing) {
+      existing = await prisma.modules.create({ data: { ...moduleData, id: generateModuleId() } });
+      created += 1;
+    } else {
+      skipped += 1;
+    }
+
+    for (const child of children || []) {
+      const existingChild = await prisma.modules.findFirst({ where: { name: child.name, parent_id: existing.id } });
+      if (existingChild) {
+        skipped += 1;
+        continue;
+      }
+
+      await prisma.modules.create({ data: { ...child, id: generateModuleId(), parent_id: existing.id } });
+      created += 1;
+    }
+  }
+
+  console.log(`Modules seeded: ${created} created, ${skipped} already existed`);
+}
+
 async function main() {
   await seedSuperAdminUser();
   const company_id = await seedSuperAdminCompany();
   await seedUnits(company_id);
+  await seedModules();
 }
 
 main()
