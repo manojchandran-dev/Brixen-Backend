@@ -1,6 +1,10 @@
 const { Prisma } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
 const companyRepository = require('../repositories/companyRepository');
+const userRepository = require('../repositories/userRepository');
 const { generateCompanyCode } = require('../utils/companyCode');
+const { generateTempPassword } = require('../utils/tempPassword');
+const { sendWelcomeEmail } = require('../utils/mailer');
 
 const STEP2_FIELDS = ['owner_name', 'email', 'phone', 'secondary_email', 'website'];
 const STEP3_FIELDS = ['address', 'city', 'state', 'pincode'];
@@ -121,6 +125,37 @@ async function updateCompanyStep3(id, data) {
   return recomputeOnboardingStatus(id);
 }
 
+async function activateCompanyUser(company) {
+  const existingUser = await userRepository.findByCompanyId(company.id);
+  if (existingUser) {
+    return;
+  }
+
+  if (!company.email) {
+    throw new CompanyError('Company must have an email set before it can be activated for the first time');
+  }
+
+  const tempPassword = generateTempPassword();
+  const password_hash = await bcrypt.hash(tempPassword, 10);
+
+  try {
+    await userRepository.create({
+      company_id: company.id,
+      email: company.email,
+      password_hash,
+      role: 'company_admin',
+    });
+  } catch (err) {
+    const isDuplicateEmail = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
+    if (isDuplicateEmail) {
+      throw new CompanyError('A user account with this email already exists', 409);
+    }
+    throw err;
+  }
+
+  await sendWelcomeEmail(company.email, company.email, tempPassword);
+}
+
 async function updateCompanyStatus(id, status) {
   const company = await companyRepository.findById(id);
   if (!company) {
@@ -129,6 +164,10 @@ async function updateCompanyStatus(id, status) {
 
   if (company.onboarding_status !== 'completed') {
     throw new CompanyError('Company must complete all 3 onboarding steps before its status can be changed');
+  }
+
+  if (status === 'ACTIVE' && company.status !== 'ACTIVE') {
+    await activateCompanyUser(company);
   }
 
   return companyRepository.update(id, { status });

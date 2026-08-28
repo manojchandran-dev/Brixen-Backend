@@ -8,6 +8,10 @@ function findById(id) {
   return prisma.users.findUnique({ where: { id } });
 }
 
+function findByCompanyId(company_id) {
+  return prisma.users.findFirst({ where: { company_id } });
+}
+
 function create(data) {
   return prisma.users.create({ data });
 }
@@ -19,6 +23,7 @@ function update(id, data) {
 module.exports = {
   findByEmail,
   findById,
+  findByCompanyId,
   create,
   update,
 };
