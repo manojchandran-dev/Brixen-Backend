@@ -13,6 +13,7 @@ const reportRoutes = require('./reports');
 const productCategoryRoutes = require('./productCategories');
 const productRoutes = require('./products');
 const moduleRoutes = require('./modules');
+const permissionRoutes = require('./permissions');
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use('/reports', reportRoutes);
 router.use('/product-categories', productCategoryRoutes);
 router.use('/products', productRoutes);
 router.use('/modules', moduleRoutes);
+router.use('/permissions', permissionRoutes);
 
 module.exports = router;
