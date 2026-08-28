@@ -70,6 +70,33 @@ async function createPermission(company_id, data) {
   throw new Error('Failed to generate a unique permission id, please retry');
 }
 
+async function createPermissionsBulk(company_id, permissionsInput) {
+  await assertValidCompany(company_id);
+
+  const moduleIds = permissionsInput.map((p) => p.module_id);
+  const uniqueModuleIds = new Set(moduleIds);
+  if (uniqueModuleIds.size !== moduleIds.length) {
+    throw new PermissionError('Duplicate module_id found in the permissions list');
+  }
+
+  for (const module_id of uniqueModuleIds) {
+    await assertValidModule(module_id);
+  }
+
+  const results = [];
+  for (const item of permissionsInput) {
+    const flags = FLAG_FIELDS.reduce((acc, field) => {
+      acc[field] = item[field] ?? false;
+      return acc;
+    }, {});
+
+    const permission = await permissionRepository.upsert(company_id, item.module_id, generatePermissionId(), flags);
+    results.push(withAccessLevel(permission));
+  }
+
+  return results;
+}
+
 async function getPermissions(company_id, { page = 1, limit = 20, module_id }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
@@ -117,6 +144,7 @@ async function deletePermission(id) {
 module.exports = {
   PermissionError,
   createPermission,
+  createPermissionsBulk,
   getPermissions,
   getPermissionById,
   updatePermission,

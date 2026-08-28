@@ -20,6 +20,14 @@ function findByCompanyAndModule(company_id, module_id) {
   return prisma.permissions.findFirst({ where: { company_id, module_id } });
 }
 
+function upsert(company_id, module_id, id, flags) {
+  return prisma.permissions.upsert({
+    where: { company_id_module_id: { company_id, module_id } },
+    create: { id, company_id, module_id, ...flags },
+    update: flags,
+  });
+}
+
 function update(id, data) {
   return prisma.permissions.update({
     where: { id },
@@ -37,6 +45,7 @@ module.exports = {
   count,
   findByIdAndCompany,
   findByCompanyAndModule,
+  upsert,
   update,
   delete: deleteById,
 };

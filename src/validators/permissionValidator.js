@@ -1,9 +1,9 @@
 const FLAG_FIELDS = ['view', 'create', 'edit', 'delete'];
 
-function validateFlags(body, errors) {
+function validateFlags(body, errors, prefix = '') {
   for (const field of FLAG_FIELDS) {
     if (body[field] !== undefined && typeof body[field] !== 'boolean') {
-      errors.push(`${field} must be true or false`);
+      errors.push(`${prefix}${field} must be true or false`);
     }
   }
 }
@@ -17,6 +17,28 @@ function validateCreatePermission(req, res, next) {
   }
 
   validateFlags(req.body, errors);
+
+  if (errors.length) {
+    return res.status(400).json({ success: false, errors });
+  }
+
+  next();
+}
+
+function validateBulkCreatePermissions(req, res, next) {
+  const { permissions } = req.body;
+  const errors = [];
+
+  if (!Array.isArray(permissions) || permissions.length === 0) {
+    errors.push('permissions is required and must be a non-empty array');
+  } else {
+    permissions.forEach((item, index) => {
+      if (!item.module_id || typeof item.module_id !== 'string' || !item.module_id.trim()) {
+        errors.push(`permissions[${index}].module_id is required and must be a non-empty string`);
+      }
+      validateFlags(item, errors, `permissions[${index}].`);
+    });
+  }
 
   if (errors.length) {
     return res.status(400).json({ success: false, errors });
@@ -43,5 +65,6 @@ function validateUpdatePermission(req, res, next) {
 
 module.exports = {
   validateCreatePermission,
+  validateBulkCreatePermissions,
   validateUpdatePermission,
 };

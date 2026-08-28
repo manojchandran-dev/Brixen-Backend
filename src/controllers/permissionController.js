@@ -23,6 +23,23 @@ async function createPermission(req, res) {
   }
 }
 
+async function createPermissionsBulk(req, res) {
+  const company_id = parseCompanyId(req.body.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
+
+  try {
+    const permissions = await permissionService.createPermissionsBulk(company_id, req.body.permissions);
+    return success(res, permissions, 201);
+  } catch (err) {
+    if (err instanceof permissionService.PermissionError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
 async function getPermissions(req, res) {
   const company_id = parseCompanyId(req.query.company_id);
   if (!company_id) {
@@ -95,6 +112,7 @@ async function deletePermission(req, res) {
 
 module.exports = {
   createPermission,
+  createPermissionsBulk,
   getPermissions,
   getPermissionById,
   updatePermission,
