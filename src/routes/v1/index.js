@@ -10,6 +10,7 @@ const customerRoutes = require('./customers');
 const saleRoutes = require('./sales');
 const dashboardRoutes = require('./dashboard');
 const reportRoutes = require('./reports');
+const productCategoryRoutes = require('./productCategories');
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use('/customers', customerRoutes);
 router.use('/sales', saleRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/reports', reportRoutes);
+router.use('/product-categories', productCategoryRoutes);
 
 module.exports = router;
