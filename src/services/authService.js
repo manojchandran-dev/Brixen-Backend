@@ -23,7 +23,14 @@ function hashToken(token) {
 }
 
 function toUserResponse(user) {
-  return { id: user.id, email: user.email, role: user.role, hasPin: Boolean(user.pin_hash) };
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    user_type: user.user_type,
+    company_id: user.company_id,
+    hasPin: Boolean(user.pin_hash),
+  };
 }
 
 async function issueTokens(user) {
