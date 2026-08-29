@@ -40,7 +40,7 @@ async function recomputeOnboardingStatus(id) {
 }
 
 async function createCompany(data) {
-  const { company_code, onboarding_status, ...rest } = data;
+  const { company_code, onboarding_status, user_type, ...rest } = data;
 
   for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt += 1) {
     try {
@@ -100,7 +100,7 @@ async function getCompanyById(id) {
 }
 
 async function updateCompany(id, data) {
-  const { company_code, onboarding_status, ...rest } = data;
+  const { company_code, onboarding_status, user_type, ...rest } = data;
   await companyRepository.update(id, rest);
   return recomputeOnboardingStatus(id);
 }
@@ -144,6 +144,7 @@ async function activateCompanyUser(company) {
       email: company.email,
       password_hash,
       role: 'company_admin',
+      user_type: 'company',
     });
   } catch (err) {
     const isDuplicateEmail = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';

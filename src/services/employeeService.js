@@ -58,7 +58,7 @@ async function assertValidManager(managerId, company_id, selfId) {
 }
 
 async function createEmployee(company_id, data) {
-  const { employee_code, id, onboarding_status, company_id: _companyId, ...rest } = data;
+  const { employee_code, id, onboarding_status, user_type, company_id: _companyId, ...rest } = data;
   await assertValidCompany(company_id);
   await assertValidManager(rest.manager_id, company_id);
 
@@ -113,7 +113,7 @@ async function getEmployeeById(id, company_id) {
 }
 
 async function updateEmployee(id, company_id, data) {
-  const { employee_code, id: _id, onboarding_status, company_id: _companyId, ...rest } = data;
+  const { employee_code, id: _id, onboarding_status, user_type, company_id: _companyId, ...rest } = data;
 
   if (rest.manager_id !== undefined) {
     await assertValidManager(rest.manager_id, company_id, id);

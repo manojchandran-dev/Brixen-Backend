@@ -84,6 +84,7 @@ async function seedSuperAdminUser() {
       email: ADMIN_EMAIL,
       password_hash,
       role: 'super_admin',
+      user_type: 'superadmin',
     },
   });
 
