@@ -298,4 +298,100 @@ function buildWelcomeEmail(email, tempPassword) {
   return { html, text };
 }
 
-module.exports = { buildOtpEmail, buildWelcomeEmail };
+function buildDeactivatedEmail(email) {
+  const navy = '#0f2544';
+  const footerNavy = '#0c1a30';
+  const green = '#16a34a';
+  const red = '#dc2626';
+  const redLightBg = '#fee2e2';
+  const grayText = '#64748b';
+  const pageBg = '#f1f5f9';
+  const year = new Date().getFullYear();
+
+  const barsLogo = (size) => `
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+      <td style="width:${size * 0.28}px;height:${size * 0.55}px;background-color:${navy};border-radius:2px;" valign="bottom">&nbsp;</td>
+      <td style="width:4px;">&nbsp;</td>
+      <td style="width:${size * 0.28}px;height:${size * 0.75}px;background-color:${green};border-radius:2px;" valign="bottom">&nbsp;</td>
+      <td style="width:4px;">&nbsp;</td>
+      <td style="width:${size * 0.28}px;height:${size}px;background-color:#38bdf8;border-radius:2px;" valign="bottom">&nbsp;</td>
+    </tr></table>`;
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background-color:${pageBg};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${pageBg};padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+
+            <!-- Header -->
+            <tr>
+              <td style="padding:28px 32px 20px 32px;">
+                <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+                  <td style="padding-right:10px;">${barsLogo(22)}</td>
+                  <td style="font-size:22px;font-weight:800;color:${navy};">Brixen</td>
+                </tr></table>
+              </td>
+            </tr>
+            <tr>
+              <td style="height:4px;line-height:4px;font-size:0;background-color:${red};">&nbsp;</td>
+            </tr>
+
+            <!-- Hero -->
+            <tr>
+              <td style="padding:32px 32px 8px 32px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" style="background-color:${redLightBg};border-radius:20px;">
+                  <tr><td style="padding:6px 14px;font-size:12px;font-weight:700;color:${red};">&#9679;&nbsp; Account Deactivated</td></tr>
+                </table>
+                <div style="margin-top:16px;font-size:26px;line-height:32px;font-weight:800;color:${navy};">Your account has been deactivated</div>
+                <div style="margin-top:12px;font-size:14px;line-height:22px;color:${grayText};">
+                  Access to your Brixen account for <strong style="color:${navy};">${email}</strong> has been turned off. You won't be able to sign in until it's reactivated by your administrator.
+                </div>
+              </td>
+            </tr>
+
+            <!-- Support -->
+            <tr>
+              <td style="padding:24px 32px 32px 32px;border-top:1px solid #e2e8f0;margin-top:16px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr>
+                  <td style="font-size:16px;color:${grayText};padding-right:12px;">&#127911;</td>
+                  <td style="font-size:13px;line-height:19px;color:${grayText};">
+                    If you believe this is a mistake, please <a href="mailto:support@brixen.app" style="color:${green};font-weight:700;text-decoration:none;">contact our support team</a>.
+                  </td>
+                </tr></table>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="background-color:${footerNavy};padding:22px 32px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td valign="middle">
+                      <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+                        <td style="padding-right:10px;">${barsLogo(16)}</td>
+                        <td style="font-size:12px;color:#c7d2e3;">Better insights. A brighter tomorrow.</td>
+                      </tr></table>
+                    </td>
+                  </tr>
+                </table>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;border-top:1px solid #16294a;">
+                  <tr><td style="padding-top:14px;text-align:center;font-size:12px;color:#8fa0bd;">&copy; ${year} Brixen. All rights reserved.</td></tr>
+                </table>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = `Your Brixen account has been deactivated.\n\nAccess for ${email} has been turned off. You won't be able to sign in until it's reactivated by your administrator.\n\nIf you believe this is a mistake, please contact our support team.`;
+
+  return { html, text };
+}
+
+module.exports = { buildOtpEmail, buildWelcomeEmail, buildDeactivatedEmail };

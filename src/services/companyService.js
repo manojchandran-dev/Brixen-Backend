@@ -2,9 +2,10 @@ const { Prisma } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const companyRepository = require('../repositories/companyRepository');
 const userRepository = require('../repositories/userRepository');
+const refreshTokenRepository = require('../repositories/refreshTokenRepository');
 const { generateCompanyCode } = require('../utils/companyCode');
 const { generateTempPassword } = require('../utils/tempPassword');
-const { sendWelcomeEmail } = require('../utils/mailer');
+const { sendWelcomeEmail, sendDeactivationEmail } = require('../utils/mailer');
 
 const STEP2_FIELDS = ['owner_name', 'email', 'phone', 'secondary_email', 'website'];
 const STEP3_FIELDS = ['address', 'city', 'state', 'pincode'];
@@ -126,35 +127,48 @@ async function updateCompanyStep3(id, data) {
 }
 
 async function activateCompanyUser(company) {
-  const existingUser = await userRepository.findByCompanyId(company.id);
-  if (existingUser) {
-    return;
-  }
-
   if (!company.email) {
-    throw new CompanyError('Company must have an email set before it can be activated for the first time');
+    throw new CompanyError('Company must have an email set before it can be activated');
   }
 
   const tempPassword = generateTempPassword();
   const password_hash = await bcrypt.hash(tempPassword, 10);
 
-  try {
-    await userRepository.create({
-      company_id: company.id,
-      email: company.email,
-      password_hash,
-      role: 'company_admin',
-      user_type: 'company',
-    });
-  } catch (err) {
-    const isDuplicateEmail = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
-    if (isDuplicateEmail) {
-      throw new CompanyError('A user account with this email already exists', 409);
+  const existingUser = await userRepository.findByCompanyId(company.id);
+
+  if (existingUser) {
+    await userRepository.update(existingUser.id, { password_hash });
+    await refreshTokenRepository.revokeAllForUser(existingUser.id);
+  } else {
+    try {
+      await userRepository.create({
+        company_id: company.id,
+        email: company.email,
+        password_hash,
+        role: 'company_admin',
+        user_type: 'company',
+      });
+    } catch (err) {
+      const isDuplicateEmail = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
+      if (isDuplicateEmail) {
+        throw new CompanyError('A user account with this email already exists', 409);
+      }
+      throw err;
     }
-    throw err;
   }
 
   await sendWelcomeEmail(company.email, company.email, tempPassword);
+}
+
+async function deactivateCompanyUser(company) {
+  const existingUser = await userRepository.findByCompanyId(company.id);
+  if (existingUser) {
+    await refreshTokenRepository.revokeAllForUser(existingUser.id);
+  }
+
+  if (company.email) {
+    await sendDeactivationEmail(company.email, company.email);
+  }
 }
 
 async function updateCompanyStatus(id, status) {
@@ -167,8 +181,12 @@ async function updateCompanyStatus(id, status) {
     throw new CompanyError('Company must complete all 3 onboarding steps before its status can be changed');
   }
 
-  if (status === 'ACTIVE' && company.status !== 'ACTIVE') {
-    await activateCompanyUser(company);
+  if (status !== company.status) {
+    if (status === 'ACTIVE') {
+      await activateCompanyUser(company);
+    } else if (status === 'INACTIVE') {
+      await deactivateCompanyUser(company);
+    }
   }
 
   return companyRepository.update(id, { status });

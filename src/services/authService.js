@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const userRepository = require('../repositories/userRepository');
 const refreshTokenRepository = require('../repositories/refreshTokenRepository');
 const passwordResetRepository = require('../repositories/passwordResetRepository');
+const companyRepository = require('../repositories/companyRepository');
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../utils/tokens');
 const { sendOtpEmail } = require('../utils/mailer');
 
@@ -56,6 +57,13 @@ async function login(email, password) {
   const passwordMatches = await bcrypt.compare(password, user.password_hash);
   if (!passwordMatches) {
     throw new AuthError('Invalid email or password');
+  }
+
+  if (user.company_id) {
+    const company = await companyRepository.findById(user.company_id);
+    if (!company || company.status !== 'ACTIVE') {
+      throw new AuthError('Your company account is inactive. Please contact your administrator.', 403);
+    }
   }
 
   const tokens = await issueTokens(user);
