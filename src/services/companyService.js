@@ -157,7 +157,11 @@ async function activateCompanyUser(company) {
     }
   }
 
-  await sendWelcomeEmail(company.email, company.email, tempPassword);
+  try {
+    await sendWelcomeEmail(company.email, company.email, tempPassword);
+  } catch (err) {
+    console.error(`Failed to send welcome email to ${company.email}:`, err.message);
+  }
 }
 
 async function deactivateCompanyUser(company) {
@@ -167,7 +171,11 @@ async function deactivateCompanyUser(company) {
   }
 
   if (company.email) {
-    await sendDeactivationEmail(company.email, company.email);
+    try {
+      await sendDeactivationEmail(company.email, company.email);
+    } catch (err) {
+      console.error(`Failed to send deactivation email to ${company.email}:`, err.message);
+    }
   }
 }
 
