@@ -23,6 +23,7 @@ model companies {
   subscription_plan  String?              @default("FREE") @db.VarChar(30)
   status             String?              @default("INACTIVE") @db.VarChar(20)
   user_type          String?              @default("company") @db.VarChar(20)
+  password           String?              @db.VarChar(20)
   entity_type        String?              @db.VarChar(50)
   pan_card           String?              @db.VarChar(10)
   employee_count     String?              @db.VarChar(20)

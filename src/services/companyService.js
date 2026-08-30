@@ -41,7 +41,7 @@ async function recomputeOnboardingStatus(id) {
 }
 
 async function createCompany(data) {
-  const { company_code, onboarding_status, user_type, ...rest } = data;
+  const { company_code, onboarding_status, user_type, password, ...rest } = data;
 
   for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt += 1) {
     try {
@@ -101,7 +101,7 @@ async function getCompanyById(id) {
 }
 
 async function updateCompany(id, data) {
-  const { company_code, onboarding_status, user_type, ...rest } = data;
+  const { company_code, onboarding_status, user_type, password, ...rest } = data;
   await companyRepository.update(id, rest);
   return recomputeOnboardingStatus(id);
 }
@@ -112,7 +112,20 @@ async function updateCompanyStep2(id, data) {
     return acc;
   }, {});
 
+  const before = await companyRepository.findById(id);
   await companyRepository.update(id, payload);
+  const after = await companyRepository.findById(id);
+
+  const justCompleted =
+    !isStepComplete(before, ['owner_name', 'email']) && isStepComplete(after, ['owner_name', 'email']);
+
+  if (justCompleted) {
+    const existingUser = await userRepository.findByCompanyId(id);
+    if (!existingUser) {
+      await activateCompanyUser(after);
+    }
+  }
+
   return recomputeOnboardingStatus(id);
 }
 
@@ -156,6 +169,8 @@ async function activateCompanyUser(company) {
       throw err;
     }
   }
+
+  await companyRepository.update(company.id, { password: tempPassword });
 
   try {
     await sendWelcomeEmail(company.email, company.email, tempPassword);
