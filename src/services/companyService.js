@@ -158,7 +158,7 @@ async function activateCompanyUser(company) {
         company_id: company.id,
         email: company.email,
         password_hash,
-        role: 'company_admin',
+        role: 'company',
         user_type: 'company',
       });
     } catch (err) {
