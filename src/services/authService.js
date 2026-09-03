@@ -23,8 +23,8 @@ function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-function toUserResponse(user) {
-  return {
+async function toUserResponse(user) {
+  const base = {
     id: user.id,
     email: user.email,
     role: user.role,
@@ -32,6 +32,17 @@ function toUserResponse(user) {
     company_id: user.company_id,
     hasPin: Boolean(user.pin_hash),
   };
+
+  if (user.user_type === 'company' && user.company_id) {
+    base.company = await companyRepository.findById(user.company_id);
+  }
+
+  // user_type 'employee' has no login system yet (employees table has no
+  // credentials, and users has no employee_id link), so there's nothing to
+  // attach here yet. 'superadmin' has no separate table -- the user record
+  // above is already the full picture for that role.
+
+  return base;
 }
 
 async function issueTokens(user) {
@@ -68,7 +79,7 @@ async function login(email, password) {
 
   const tokens = await issueTokens(user);
   return {
-    user: toUserResponse(user),
+    user: await toUserResponse(user),
     ...tokens,
   };
 }
@@ -152,7 +163,7 @@ async function verifyPin(refreshToken, pin) {
   await refreshTokenRepository.revoke(stored.id);
   const tokens = await issueTokens(user);
   return {
-    user: toUserResponse(user),
+    user: await toUserResponse(user),
     ...tokens,
   };
 }
