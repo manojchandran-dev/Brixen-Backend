@@ -69,18 +69,25 @@ function toNumber(decimal) {
   return decimal === null || decimal === undefined ? 0 : Number(decimal);
 }
 
-async function getReportSummary({ period = 'weekly', from: fromQuery, to: toQuery, topCategoriesLimit, topCustomersLimit }) {
+async function getReportSummary({
+  company_id,
+  period = 'weekly',
+  from: fromQuery,
+  to: toQuery,
+  topCategoriesLimit,
+  topCustomersLimit,
+}) {
   const { from, to } = resolvePeriod(period, fromQuery, toQuery);
   const categoriesLimit = topCategoriesLimit || DEFAULT_TOP_LIMIT;
   const customersLimit = topCustomersLimit || DEFAULT_TOP_LIMIT;
 
   const [sales, expenses] = await Promise.all([
     prisma.sales.findMany({
-      where: { bill_date: { gte: from, lte: to } },
+      where: { company_id, bill_date: { gte: from, lte: to } },
       include: { customers: { select: { id: true, name: true } } },
     }),
     prisma.expenses.findMany({
-      where: { expense_date: { gte: from, lte: to } },
+      where: { company_id, expense_date: { gte: from, lte: to } },
       include: { expense_categories: { select: { id: true, name: true } } },
     }),
   ]);

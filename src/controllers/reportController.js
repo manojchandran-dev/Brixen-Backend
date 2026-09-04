@@ -1,7 +1,13 @@
 const reportService = require('../services/reportService');
 const { success, error } = require('../utils/apiResponse');
+const { parseCompanyId } = require('../utils/companyScope');
 
 async function getReportSummary(req, res) {
+  const company_id = parseCompanyId(req.query.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
+
   const period = req.query.period || 'weekly';
   const from = req.query.from ? new Date(req.query.from) : undefined;
   const to = req.query.to ? new Date(req.query.to) : undefined;
@@ -9,7 +15,14 @@ async function getReportSummary(req, res) {
   const topCustomersLimit = req.query.top_customers_limit ? parseInt(req.query.top_customers_limit, 10) : undefined;
 
   try {
-    const result = await reportService.getReportSummary({ period, from, to, topCategoriesLimit, topCustomersLimit });
+    const result = await reportService.getReportSummary({
+      company_id,
+      period,
+      from,
+      to,
+      topCategoriesLimit,
+      topCustomersLimit,
+    });
     return success(res, result);
   } catch (err) {
     if (err instanceof reportService.ReportError) {
