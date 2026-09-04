@@ -13,11 +13,11 @@ function count(where = {}) {
 }
 
 function findById(id) {
-  return prisma.sales.findUnique({ where: { id } });
+  return prisma.sales.findUnique({ where: { id }, include: { sale_items: true } });
 }
 
 function findByIdAndCompany(id, company_id) {
-  return prisma.sales.findFirst({ where: { id, company_id } });
+  return prisma.sales.findFirst({ where: { id, company_id }, include: { sale_items: true } });
 }
 
 function update(id, data) {

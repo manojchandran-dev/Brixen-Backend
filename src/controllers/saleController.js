@@ -85,6 +85,32 @@ async function updateSale(req, res) {
   }
 }
 
+async function updateSaleStep2(req, res) {
+  const { id } = req.params;
+  const company_id = parseCompanyId(req.query.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
+  if (!isValidId(id)) {
+    return error(res, 'Invalid sale id', 400);
+  }
+
+  const existing = await saleService.getSaleById(id, company_id);
+  if (!existing) {
+    return error(res, 'Sale not found', 404);
+  }
+
+  try {
+    const sale = await saleService.updateSaleStep2(id, company_id, req.body);
+    return success(res, sale);
+  } catch (err) {
+    if (err instanceof saleService.SaleError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
 async function deleteSale(req, res) {
   const { id } = req.params;
   const company_id = parseCompanyId(req.query.company_id);
@@ -109,5 +135,6 @@ module.exports = {
   getSales,
   getSaleById,
   updateSale,
+  updateSaleStep2,
   deleteSale,
 };

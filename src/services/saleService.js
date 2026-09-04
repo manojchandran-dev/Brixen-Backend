@@ -2,7 +2,10 @@ const { Prisma } = require('@prisma/client');
 const saleRepository = require('../repositories/saleRepository');
 const customerRepository = require('../repositories/customerRepository');
 const companyRepository = require('../repositories/companyRepository');
+const productRepository = require('../repositories/productRepository');
+const saleItemRepository = require('../repositories/saleItemRepository');
 const { generateSaleId } = require('../utils/saleId');
+const { generateSaleItemId } = require('../utils/saleItemId');
 
 const MAX_ID_ATTEMPTS = 5;
 
@@ -31,6 +34,13 @@ async function assertValidCustomer(customer_id, company_id) {
   }
 }
 
+async function assertValidProduct(product_id, company_id) {
+  const product = await productRepository.findByIdAndCompany(product_id, company_id);
+  if (!product) {
+    throw new SaleError(`product_id ${product_id} does not reference an existing product for this company`);
+  }
+}
+
 function resolveTotal(subtotal, tax_amount, total_amount) {
   if (total_amount !== undefined && total_amount !== null) {
     return total_amount;
@@ -38,12 +48,18 @@ function resolveTotal(subtotal, tax_amount, total_amount) {
   return Number(subtotal) + Number(tax_amount || 0);
 }
 
+function round2(value) {
+  return Number(value.toFixed(2));
+}
+
 async function createSale(company_id, data) {
   await assertValidCompany(company_id);
   await assertValidCustomer(data.customer_id, company_id);
 
+  const subtotal = data.subtotal ?? 0;
+  const tax_percentage = data.tax_percentage ?? 0;
   const tax_amount = data.tax_amount ?? 0;
-  const total_amount = resolveTotal(data.subtotal, tax_amount, data.total_amount);
+  const total_amount = resolveTotal(subtotal, tax_amount, data.total_amount);
 
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt += 1) {
     try {
@@ -54,7 +70,8 @@ async function createSale(company_id, data) {
         customer_id: data.customer_id,
         invoice_type: data.invoice_type,
         bill_image_url: data.bill_image_url,
-        subtotal: data.subtotal,
+        subtotal,
+        tax_percentage,
         tax_amount,
         total_amount,
         payment_type: data.payment_type,
@@ -131,6 +148,44 @@ async function updateSale(id, company_id, data) {
   return saleRepository.update(id, rest);
 }
 
+async function updateSaleStep2(id, company_id, data) {
+  const { items, tax_percentage } = data;
+
+  const preparedItems = [];
+  let subtotal = 0;
+
+  for (const item of items) {
+    await assertValidProduct(item.product_id, company_id);
+
+    const price = Number(item.price);
+    const quantity = Number(item.quantity);
+    const line_total = round2(price * quantity);
+    subtotal += line_total;
+
+    preparedItems.push({
+      id: generateSaleItemId(),
+      sale_id: id,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      price_type: item.price_type,
+      price,
+      quantity,
+      line_total,
+    });
+  }
+
+  subtotal = round2(subtotal);
+  const taxPct = tax_percentage !== undefined && tax_percentage !== null ? Number(tax_percentage) : 0;
+  const tax_amount = round2((subtotal * taxPct) / 100);
+  const total_amount = round2(subtotal + tax_amount);
+
+  await saleItemRepository.deleteManyBySaleId(id);
+  await saleItemRepository.createMany(preparedItems);
+  await saleRepository.update(id, { subtotal, tax_percentage: taxPct, tax_amount, total_amount });
+
+  return saleRepository.findByIdAndCompany(id, company_id);
+}
+
 async function deleteSale(id) {
   return saleRepository.delete(id);
 }
@@ -141,5 +196,6 @@ module.exports = {
   getSales,
   getSaleById,
   updateSale,
+  updateSaleStep2,
   deleteSale,
 };
