@@ -1,14 +1,11 @@
 const reportService = require('../services/reportService');
 const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId } = require('../utils/companyScope');
+const { resolveOptionalScope } = require('../utils/companyScope');
 
 async function getReportSummary(req, res) {
-  let company_id = null;
-  if (req.query.company_id !== undefined) {
-    company_id = parseCompanyId(req.query.company_id);
-    if (!company_id) {
-      return error(res, 'company_id must be a positive integer', 400);
-    }
+  const { company_id, ok } = resolveOptionalScope(req.query);
+  if (!ok) {
+    return error(res, 'company_id must be a positive integer', 400);
   }
 
   const period = req.query.period || 'weekly';

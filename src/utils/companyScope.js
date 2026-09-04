@@ -21,4 +21,24 @@ function resolveListScope(query) {
   return { company_id, ok: Boolean(company_id) };
 }
 
-module.exports = { parseCompanyId, resolveListScope };
+function isBlankCompanyId(raw) {
+  if (raw === undefined || raw === null || raw === '') {
+    return true;
+  }
+  const normalized = String(raw).trim().toLowerCase();
+  return normalized === 'null' || normalized === 'undefined';
+}
+
+// For dashboard/reports: company_id is optional. superadmin, or an
+// absent/blank/"null" company_id, means "no filter, all companies".
+// Anything else must parse to a valid positive integer.
+function resolveOptionalScope(query) {
+  if (query.user_type === 'superadmin' || isBlankCompanyId(query.company_id)) {
+    return { company_id: null, ok: true };
+  }
+
+  const company_id = parseCompanyId(query.company_id);
+  return { company_id, ok: Boolean(company_id) };
+}
+
+module.exports = { parseCompanyId, resolveListScope, resolveOptionalScope };
