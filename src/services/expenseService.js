@@ -74,7 +74,7 @@ async function getExpenses(company_id, { page = 1, limit = 20, search = '', cate
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
-    company_id,
+    ...(company_id ? { company_id } : {}),
     ...(category_id ? { category_id } : {}),
     ...(unit_id ? { unit_id } : {}),
     ...(from || to

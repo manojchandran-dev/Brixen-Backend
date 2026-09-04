@@ -1,6 +1,6 @@
 const employeeService = require('../services/employeeService');
 const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId } = require('../utils/companyScope');
+const { parseCompanyId, resolveListScope } = require('../utils/companyScope');
 
 async function createEmployee(req, res) {
   const company_id = parseCompanyId(req.body.company_id);
@@ -20,8 +20,8 @@ async function createEmployee(req, res) {
 }
 
 async function getEmployees(req, res) {
-  const company_id = parseCompanyId(req.query.company_id);
-  if (!company_id) {
+  const { company_id, ok } = resolveListScope(req.query);
+  if (!ok) {
     return error(res, 'company_id is required and must be a positive integer', 400);
   }
 

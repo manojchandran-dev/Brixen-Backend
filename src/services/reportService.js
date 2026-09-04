@@ -83,11 +83,11 @@ async function getReportSummary({
 
   const [sales, expenses] = await Promise.all([
     prisma.sales.findMany({
-      where: { company_id, bill_date: { gte: from, lte: to } },
+      where: { ...(company_id ? { company_id } : {}), bill_date: { gte: from, lte: to } },
       include: { customers: { select: { id: true, name: true } } },
     }),
     prisma.expenses.findMany({
-      where: { company_id, expense_date: { gte: from, lte: to } },
+      where: { ...(company_id ? { company_id } : {}), expense_date: { gte: from, lte: to } },
       include: { expense_categories: { select: { id: true, name: true } } },
     }),
   ]);

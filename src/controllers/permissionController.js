@@ -1,6 +1,6 @@
 const permissionService = require('../services/permissionService');
 const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId } = require('../utils/companyScope');
+const { parseCompanyId, resolveListScope } = require('../utils/companyScope');
 
 function isValidId(raw) {
   return /^PERM\d{12}$/.test(raw);
@@ -41,8 +41,8 @@ async function createPermissionsBulk(req, res) {
 }
 
 async function getPermissions(req, res) {
-  const company_id = parseCompanyId(req.query.company_id);
-  if (!company_id) {
+  const { company_id, ok } = resolveListScope(req.query);
+  if (!ok) {
     return error(res, 'company_id is required and must be a positive integer', 400);
   }
 

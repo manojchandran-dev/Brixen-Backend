@@ -77,7 +77,7 @@ async function getSales(company_id, { page = 1, limit = 20, search = '', custome
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
-    company_id,
+    ...(company_id ? { company_id } : {}),
     ...(customer_id ? { customer_id } : {}),
     ...(payment_status ? { payment_status } : {}),
     ...(from || to ? { bill_date: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),

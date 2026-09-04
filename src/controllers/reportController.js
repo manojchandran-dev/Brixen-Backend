@@ -3,9 +3,12 @@ const { success, error } = require('../utils/apiResponse');
 const { parseCompanyId } = require('../utils/companyScope');
 
 async function getReportSummary(req, res) {
-  const company_id = parseCompanyId(req.query.company_id);
-  if (!company_id) {
-    return error(res, 'company_id is required and must be a positive integer', 400);
+  let company_id = null;
+  if (req.query.company_id !== undefined) {
+    company_id = parseCompanyId(req.query.company_id);
+    if (!company_id) {
+      return error(res, 'company_id must be a positive integer', 400);
+    }
   }
 
   const period = req.query.period || 'weekly';

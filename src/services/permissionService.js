@@ -102,7 +102,7 @@ async function getPermissions(company_id, { page = 1, limit = 20, module_id }) {
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
-    company_id,
+    ...(company_id ? { company_id } : {}),
     ...(module_id ? { module_id } : {}),
   };
 

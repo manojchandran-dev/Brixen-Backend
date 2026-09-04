@@ -1,6 +1,6 @@
 const productCategoryService = require('../services/productCategoryService');
 const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId } = require('../utils/companyScope');
+const { parseCompanyId, resolveListScope } = require('../utils/companyScope');
 
 function isValidId(raw) {
   return /^PRCAT\d{11}$/.test(raw);
@@ -24,8 +24,8 @@ async function createProductCategory(req, res) {
 }
 
 async function getProductCategories(req, res) {
-  const company_id = parseCompanyId(req.query.company_id);
-  if (!company_id) {
+  const { company_id, ok } = resolveListScope(req.query);
+  if (!ok) {
     return error(res, 'company_id is required and must be a positive integer', 400);
   }
 
