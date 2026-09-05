@@ -59,6 +59,24 @@ async function getSaleById(req, res) {
   return success(res, sale);
 }
 
+async function getSaleItems(req, res) {
+  const { id } = req.params;
+  const company_id = parseCompanyId(req.query.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
+  if (!isValidId(id)) {
+    return error(res, 'Invalid sale id', 400);
+  }
+
+  const items = await saleService.getSaleItems(id, company_id);
+  if (!items) {
+    return error(res, 'Sale not found', 404);
+  }
+
+  return success(res, items);
+}
+
 async function updateSale(req, res) {
   const { id } = req.params;
   const company_id = parseCompanyId(req.query.company_id);
@@ -134,6 +152,7 @@ module.exports = {
   createSale,
   getSales,
   getSaleById,
+  getSaleItems,
   updateSale,
   updateSaleStep2,
   deleteSale,

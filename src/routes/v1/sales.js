@@ -8,6 +8,7 @@ const router = Router();
 router.post('/', validateCreateSale, asyncHandler(saleController.createSale));
 router.get('/', asyncHandler(saleController.getSales));
 router.get('/:id', asyncHandler(saleController.getSaleById));
+router.get('/:id/items', asyncHandler(saleController.getSaleItems));
 router.put('/:id', validateUpdateSale, asyncHandler(saleController.updateSale));
 router.put('/:id/step2', validateSaleStep2, asyncHandler(saleController.updateSaleStep2));
 router.delete('/:id', asyncHandler(saleController.deleteSale));

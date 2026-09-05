@@ -125,6 +125,14 @@ async function getSales(company_id, { page = 1, limit = 20, search = '', custome
   };
 }
 
+async function getSaleItems(id, company_id) {
+  const sale = await saleRepository.findByIdAndCompany(id, company_id);
+  if (!sale) {
+    return null;
+  }
+  return saleItemRepository.findManyBySaleId(id);
+}
+
 async function getSaleById(id, company_id) {
   return saleRepository.findByIdAndCompany(id, company_id);
 }
@@ -195,6 +203,7 @@ module.exports = {
   createSale,
   getSales,
   getSaleById,
+  getSaleItems,
   updateSale,
   updateSaleStep2,
   deleteSale,
