@@ -14,6 +14,7 @@ const productCategoryRoutes = require('./productCategories');
 const productRoutes = require('./products');
 const moduleRoutes = require('./modules');
 const permissionRoutes = require('./permissions');
+const uploadRoutes = require('./uploads');
 
 const router = Router();
 
@@ -32,5 +33,6 @@ router.use('/product-categories', productCategoryRoutes);
 router.use('/products', productRoutes);
 router.use('/modules', moduleRoutes);
 router.use('/permissions', permissionRoutes);
+router.use('/uploads', uploadRoutes);
 
 module.exports = router;
