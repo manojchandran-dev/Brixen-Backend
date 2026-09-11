@@ -29,9 +29,22 @@ function filterTree(tree, grantedModuleIds) {
     .filter(Boolean);
 }
 
+function filterSuperadminTree(tree) {
+  return tree
+    .map((node) => {
+      const children = filterSuperadminTree(node.children);
+      if (!node.visible_to_superadmin && children.length === 0) {
+        return null;
+      }
+      return { ...node, children };
+    })
+    .filter(Boolean);
+}
+
 async function getModules() {
   const modules = await moduleRepository.findMany({ orderBy: { created_at: 'asc' } });
-  return buildTree(modules);
+  const tree = buildTree(modules);
+  return filterSuperadminTree(tree);
 }
 
 async function getAccessibleModules(company_id) {

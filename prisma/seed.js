@@ -8,19 +8,19 @@ const { generateModuleId } = require('../src/utils/moduleId');
 const DEFAULT_MODULES = [
   { name: 'Companies', description: 'All companies' },
   { name: 'Permissions', description: 'Access control' },
-  { name: 'Employees', description: 'Manage staff' },
-  { name: 'Sales', description: 'Invoices' },
-  { name: 'Customers', description: 'Customer records' },
-  { name: 'Expenses', description: 'Track spending' },
-  { name: 'Products', description: 'Garments catalog' },
+  { name: 'Employees', description: 'Manage staff', visible_to_superadmin: false },
+  { name: 'Sales', description: 'Invoices', visible_to_superadmin: false },
+  { name: 'Customers', description: 'Customer records', visible_to_superadmin: false },
+  { name: 'Expenses', description: 'Track spending', visible_to_superadmin: false },
+  { name: 'Products', description: 'Garments catalog', visible_to_superadmin: false },
   {
     name: 'Masters',
     description: 'Categories & units',
     children: [
       { name: 'Company Category', description: 'Company types' },
-      { name: 'Expense Category', description: 'Spending types' },
-      { name: 'Units', description: 'Measurement units' },
-      { name: 'Product Category', description: 'Garments categories' },
+      { name: 'Expense Category', description: 'Spending types', visible_to_superadmin: false },
+      { name: 'Units', description: 'Measurement units', visible_to_superadmin: false },
+      { name: 'Product Category', description: 'Garments categories', visible_to_superadmin: false },
     ],
   },
 ];
@@ -133,7 +133,7 @@ async function seedUnits(company_id) {
 
 async function seedModules() {
   let created = 0;
-  let skipped = 0;
+  let updated = 0;
 
   for (const mod of DEFAULT_MODULES) {
     const { children, ...moduleData } = mod;
@@ -142,23 +142,33 @@ async function seedModules() {
     if (!existing) {
       existing = await prisma.modules.create({ data: { ...moduleData, id: generateModuleId() } });
       created += 1;
-    } else {
-      skipped += 1;
+    } else if (existing.visible_to_superadmin !== (moduleData.visible_to_superadmin ?? true)) {
+      await prisma.modules.update({
+        where: { id: existing.id },
+        data: { visible_to_superadmin: moduleData.visible_to_superadmin ?? true },
+      });
+      updated += 1;
     }
 
     for (const child of children || []) {
       const existingChild = await prisma.modules.findFirst({ where: { name: child.name, parent_id: existing.id } });
-      if (existingChild) {
-        skipped += 1;
+      if (!existingChild) {
+        await prisma.modules.create({ data: { ...child, id: generateModuleId(), parent_id: existing.id } });
+        created += 1;
         continue;
       }
 
-      await prisma.modules.create({ data: { ...child, id: generateModuleId(), parent_id: existing.id } });
-      created += 1;
+      if (existingChild.visible_to_superadmin !== (child.visible_to_superadmin ?? true)) {
+        await prisma.modules.update({
+          where: { id: existingChild.id },
+          data: { visible_to_superadmin: child.visible_to_superadmin ?? true },
+        });
+        updated += 1;
+      }
     }
   }
 
-  console.log(`Modules seeded: ${created} created, ${skipped} already existed`);
+  console.log(`Modules seeded: ${created} created, ${updated} updated`);
 }
 
 async function main() {
