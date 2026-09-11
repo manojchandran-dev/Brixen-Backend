@@ -7,6 +7,8 @@ const { generateModuleId } = require('../src/utils/moduleId');
 
 const DEFAULT_MODULES = [
   { name: 'Companies', description: 'All companies' },
+  { name: 'Notifications', description: 'System & ticket alerts' },
+  { name: 'Support Ticket', description: 'Company support requests' },
   { name: 'Permissions', description: 'Access control' },
   { name: 'Employees', description: 'Manage staff', visible_to_superadmin: false },
   { name: 'Sales', description: 'Invoices', visible_to_superadmin: false },

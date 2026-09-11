@@ -15,6 +15,8 @@ const productRoutes = require('./products');
 const moduleRoutes = require('./modules');
 const permissionRoutes = require('./permissions');
 const uploadRoutes = require('./uploads');
+const supportTicketRoutes = require('./supportTickets');
+const notificationRoutes = require('./notifications');
 
 const router = Router();
 
@@ -34,5 +36,7 @@ router.use('/products', productRoutes);
 router.use('/modules', moduleRoutes);
 router.use('/permissions', permissionRoutes);
 router.use('/uploads', uploadRoutes);
+router.use('/support-tickets', supportTicketRoutes);
+router.use('/notifications', notificationRoutes);
 
 module.exports = router;
