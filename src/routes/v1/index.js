@@ -18,6 +18,8 @@ const uploadRoutes = require('./uploads');
 const supportTicketRoutes = require('./supportTickets');
 const notificationRoutes = require('./notifications');
 const chatRoutes = require('./chat');
+const pushNotificationRoutes = require('./pushNotifications');
+const announcementRoutes = require('./announcements');
 
 const router = Router();
 
@@ -39,6 +41,8 @@ router.use('/permissions', permissionRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/support/tickets', supportTicketRoutes);
 router.use('/chat', chatRoutes);
+router.use('/notifications/push', pushNotificationRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/announcements', announcementRoutes);
 
 module.exports = router;
