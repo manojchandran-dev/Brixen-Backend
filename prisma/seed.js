@@ -8,7 +8,8 @@ const { generateModuleId } = require('../src/utils/moduleId');
 const DEFAULT_MODULES = [
   { name: 'Companies', description: 'All companies' },
   { name: 'Notifications', description: 'System & ticket alerts' },
-  { name: 'Support Ticket', description: 'Company support requests' },
+  { name: 'Support Ticket', description: 'Company support requests', always_visible: true },
+  { name: 'Chatbot', description: 'Live support chat', always_visible: true },
   { name: 'Permissions', description: 'Access control' },
   { name: 'Employees', description: 'Manage staff', visible_to_superadmin: false },
   { name: 'Sales', description: 'Invoices', visible_to_superadmin: false },
@@ -133,6 +134,18 @@ async function seedUnits(company_id) {
   console.log(`Units seeded: ${created} created, ${skipped} already existed`);
 }
 
+const flagsOf = (m) => ({
+  visible_to_superadmin: m.visible_to_superadmin ?? true,
+  always_visible: m.always_visible ?? false,
+});
+
+async function syncFlags(existing, def) {
+  const flags = flagsOf(def);
+  const stale = Object.keys(flags).some((k) => existing[k] !== flags[k]);
+  if (stale) await prisma.modules.update({ where: { id: existing.id }, data: flags });
+  return stale;
+}
+
 async function seedModules() {
   let created = 0;
   let updated = 0;
@@ -144,11 +157,7 @@ async function seedModules() {
     if (!existing) {
       existing = await prisma.modules.create({ data: { ...moduleData, id: generateModuleId() } });
       created += 1;
-    } else if (existing.visible_to_superadmin !== (moduleData.visible_to_superadmin ?? true)) {
-      await prisma.modules.update({
-        where: { id: existing.id },
-        data: { visible_to_superadmin: moduleData.visible_to_superadmin ?? true },
-      });
+    } else if (await syncFlags(existing, moduleData)) {
       updated += 1;
     }
 
@@ -157,14 +166,7 @@ async function seedModules() {
       if (!existingChild) {
         await prisma.modules.create({ data: { ...child, id: generateModuleId(), parent_id: existing.id } });
         created += 1;
-        continue;
-      }
-
-      if (existingChild.visible_to_superadmin !== (child.visible_to_superadmin ?? true)) {
-        await prisma.modules.update({
-          where: { id: existingChild.id },
-          data: { visible_to_superadmin: child.visible_to_superadmin ?? true },
-        });
+      } else if (await syncFlags(existingChild, child)) {
         updated += 1;
       }
     }

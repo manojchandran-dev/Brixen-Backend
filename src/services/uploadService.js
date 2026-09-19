@@ -1,17 +1,18 @@
 const cloudinary = require('../config/cloudinary');
 
-const ALLOWED_FOLDERS = ['products', 'companies', 'employees', 'customers', 'sales', 'expenses', 'misc'];
+const ALLOWED_FOLDERS = ['products', 'companies', 'employees', 'customers', 'sales', 'expenses', 'support', 'misc'];
 
 function resolveFolder(raw) {
   const folder = ALLOWED_FOLDERS.includes(raw) ? raw : 'misc';
   return `brixen/${folder}`;
 }
 
-function uploadImageBuffer(buffer, rawFolder) {
+// Cloudinary stores audio under the "video" resource type.
+function uploadBuffer(buffer, rawFolder, resourceType) {
   const folder = resolveFolder(rawFolder);
 
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream({ folder, resource_type: 'image' }, (err, result) => {
+    const stream = cloudinary.uploader.upload_stream({ folder, resource_type: resourceType }, (err, result) => {
       if (err) return reject(err);
       resolve(result);
     });
@@ -19,4 +20,4 @@ function uploadImageBuffer(buffer, rawFolder) {
   });
 }
 
-module.exports = { uploadImageBuffer, ALLOWED_FOLDERS };
+module.exports = { uploadBuffer, ALLOWED_FOLDERS };

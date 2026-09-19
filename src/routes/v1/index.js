@@ -17,6 +17,7 @@ const permissionRoutes = require('./permissions');
 const uploadRoutes = require('./uploads');
 const supportTicketRoutes = require('./supportTickets');
 const notificationRoutes = require('./notifications');
+const chatRoutes = require('./chat');
 
 const router = Router();
 
@@ -36,7 +37,8 @@ router.use('/products', productRoutes);
 router.use('/modules', moduleRoutes);
 router.use('/permissions', permissionRoutes);
 router.use('/uploads', uploadRoutes);
-router.use('/support-tickets', supportTicketRoutes);
+router.use('/support/tickets', supportTicketRoutes);
+router.use('/chat', chatRoutes);
 router.use('/notifications', notificationRoutes);
 
 module.exports = router;

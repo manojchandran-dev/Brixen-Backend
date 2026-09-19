@@ -1,12 +1,18 @@
 const uploadService = require('../services/uploadService');
 const { success, error } = require('../utils/apiResponse');
 
-async function uploadImage(req, res) {
+const isAudio = (file) => file.mimetype.startsWith('audio/') || /\.m4a$/i.test(file.originalname);
+
+async function uploadFile(req, res) {
   if (!req.file) {
     return error(res, 'file is required (multipart/form-data field "file")', 400);
   }
 
-  const result = await uploadService.uploadImageBuffer(req.file.buffer, req.body.folder);
+  const result = await uploadService.uploadBuffer(
+    req.file.buffer,
+    req.body.folder,
+    isAudio(req.file) ? 'video' : 'image'
+  );
 
   return success(
     res,
@@ -22,4 +28,4 @@ async function uploadImage(req, res) {
   );
 }
 
-module.exports = { uploadImage };
+module.exports = { uploadFile };

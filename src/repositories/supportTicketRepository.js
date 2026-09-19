@@ -1,11 +1,16 @@
 const prisma = require('../prisma/client');
 
+const INCLUDE = {
+  companies: { select: { company_name: true } },
+  messages: { orderBy: { sent_at: 'asc' } },
+};
+
 function create(data) {
-  return prisma.support_tickets.create({ data });
+  return prisma.support_tickets.create({ data, include: INCLUDE });
 }
 
 function findMany(params) {
-  return prisma.support_tickets.findMany(params);
+  return prisma.support_tickets.findMany({ ...params, include: INCLUDE });
 }
 
 function count(where = {}) {
@@ -13,30 +18,11 @@ function count(where = {}) {
 }
 
 function findById(id) {
-  return prisma.support_tickets.findUnique({ where: { id } });
-}
-
-function findByIdAndCompany(id, company_id) {
-  return prisma.support_tickets.findFirst({ where: { id, company_id } });
+  return prisma.support_tickets.findUnique({ where: { id }, include: INCLUDE });
 }
 
 function update(id, data) {
-  return prisma.support_tickets.update({
-    where: { id },
-    data,
-  });
+  return prisma.support_tickets.update({ where: { id }, data, include: INCLUDE });
 }
 
-function deleteById(id) {
-  return prisma.support_tickets.delete({ where: { id } });
-}
-
-module.exports = {
-  create,
-  findMany,
-  count,
-  findById,
-  findByIdAndCompany,
-  update,
-  delete: deleteById,
-};
+module.exports = { create, findMany, count, findById, update };

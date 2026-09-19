@@ -1,10 +1,11 @@
 const supportTicketRepository = require('../repositories/supportTicketRepository');
 const companyRepository = require('../repositories/companyRepository');
 const notificationService = require('./notificationService');
-const { generateTicketId } = require('../utils/ticketId');
+const { generateTicketId, generateTicketMessageId } = require('../utils/ticketId');
 
-const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
-const STATUSES = ['Open', 'In Progress', 'Resolved', 'Closed'];
+const CATEGORIES = ['technical', 'billing', 'featureRequest', 'bug', 'other'];
+const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+const STATUSES = ['open', 'pending', 'inProgress', 'resolved', 'closed'];
 
 class SupportTicketError extends Error {
   constructor(message, status = 400) {
@@ -13,26 +14,61 @@ class SupportTicketError extends Error {
   }
 }
 
-async function assertValidCompany(company_id) {
+function assertOneOf(field, value, allowed) {
+  if (!allowed.includes(value)) {
+    throw new SupportTicketError(`${field} must be one of: ${allowed.join(', ')}`);
+  }
+}
+
+function assertText(field, value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new SupportTicketError(`${field} is required and must be a non-empty string`);
+  }
+}
+
+function toTicket({ companies, messages, ...ticket }) {
+  return {
+    ...ticket,
+    company_name: companies?.company_name ?? null,
+    messages: messages.map(({ id, sender_name, is_support_reply, text, sent_at }) => ({
+      id,
+      sender_name,
+      is_support_reply,
+      text,
+      sent_at,
+    })),
+  };
+}
+
+async function createTicket(company_id, data) {
   const company = await companyRepository.findById(company_id);
   if (!company) {
     throw new SupportTicketError('company_id does not reference an existing company');
   }
-  return company;
-}
 
-async function createTicket(company_id, data) {
-  const company = await assertValidCompany(company_id);
+  assertText('subject', data.subject);
+  assertText('description', data.description);
+  const category = data.category ?? 'other';
+  const priority = data.priority ?? 'medium';
+  assertOneOf('category', category, CATEGORIES);
+  assertOneOf('priority', priority, PRIORITIES);
 
-  const priority = PRIORITIES.includes(data.priority) ? data.priority : 'Medium';
+  const raised_by = company.owner_name || company.company_name;
 
   const ticket = await supportTicketRepository.create({
     id: generateTicketId(),
     company_id,
-    subject: data.subject,
-    message: data.message,
+    subject: data.subject.trim(),
+    description: data.description,
+    category,
     priority,
-    status: 'Open',
+    status: 'open',
+    raised_by,
+    messages: {
+      create: [
+        { id: generateTicketMessageId(), sender_name: raised_by, is_support_reply: false, text: data.description },
+      ],
+    },
   });
 
   try {
@@ -40,79 +76,69 @@ async function createTicket(company_id, data) {
       company_id,
       type: 'support_ticket',
       title: `New support ticket from ${company.company_name}`,
-      message: data.subject,
+      message: ticket.subject,
     });
   } catch (err) {
     console.error(`Failed to create notification for ticket ${ticket.id}:`, err.message);
   }
 
-  return ticket;
+  return toTicket(ticket);
 }
 
-async function getTickets(company_id, { page = 1, limit = 20, status, priority, search = '' }) {
+async function getTickets(company_id, { page = 1, limit = 20, status, search = '' }) {
+  if (status !== undefined) assertOneOf('status', status, STATUSES);
+
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
     ...(company_id ? { company_id } : {}),
     ...(status ? { status } : {}),
-    ...(priority ? { priority } : {}),
     ...(search
       ? {
           OR: [
             { subject: { contains: search, mode: 'insensitive' } },
-            { message: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
           ],
         }
       : {}),
   };
 
   const [data, total] = await Promise.all([
-    supportTicketRepository.findMany({ where, skip, take, orderBy: { created_at: 'desc' } }),
+    supportTicketRepository.findMany({ where, skip, take, orderBy: { updated_at: 'desc' } }),
     supportTicketRepository.count(where),
   ]);
 
   return {
-    items: data,
-    meta: {
-      page,
-      limit: take,
-      total,
-      pages: Math.ceil(total / take),
-    },
+    items: data.map(toTicket),
+    meta: { page, limit: take, total, pages: Math.ceil(total / take) },
   };
 }
 
-async function getTicketById(id, company_id) {
-  if (!company_id) {
-    return supportTicketRepository.findById(id);
-  }
-  return supportTicketRepository.findByIdAndCompany(id, company_id);
+async function getTicketById(id) {
+  const ticket = await supportTicketRepository.findById(id);
+  return ticket ? toTicket(ticket) : null;
 }
 
-async function updateTicketStatus(id, { status, resolution_notes }) {
-  if (status !== undefined && !STATUSES.includes(status)) {
-    throw new SupportTicketError(`status must be one of: ${STATUSES.join(', ')}`);
-  }
-
-  const payload = {};
-  if (status !== undefined) payload.status = status;
-  if (resolution_notes !== undefined) payload.resolution_notes = resolution_notes;
-
-  return supportTicketRepository.update(id, payload);
+async function updateStatus(id, status) {
+  assertOneOf('status', status, STATUSES);
+  return toTicket(await supportTicketRepository.update(id, { status }));
 }
 
-async function deleteTicket(id) {
-  return supportTicketRepository.delete(id);
+async function assign(id, assigned_to) {
+  if (assigned_to !== null) assertText('assigned_to', assigned_to);
+  return toTicket(await supportTicketRepository.update(id, { assigned_to }));
 }
 
-module.exports = {
-  SupportTicketError,
-  PRIORITIES,
-  STATUSES,
-  createTicket,
-  getTickets,
-  getTicketById,
-  updateTicketStatus,
-  deleteTicket,
-};
+async function addNote(id, text) {
+  assertText('text', text);
+  return toTicket(
+    await supportTicketRepository.update(id, {
+      messages: {
+        create: { id: generateTicketMessageId(), sender_name: 'Support', is_support_reply: true, text },
+      },
+    })
+  );
+}
+
+module.exports = { SupportTicketError, createTicket, getTickets, getTicketById, updateStatus, assign, addNote };

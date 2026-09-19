@@ -1,13 +1,14 @@
 const { Router } = require('express');
 const asyncHandler = require('../../middleware/asyncHandler');
-const supportTicketController = require('../../controllers/supportTicketController');
+const c = require('../../controllers/supportTicketController');
 
 const router = Router();
 
-router.post('/', asyncHandler(supportTicketController.createTicket));
-router.get('/', asyncHandler(supportTicketController.getTickets));
-router.get('/:id', asyncHandler(supportTicketController.getTicketById));
-router.put('/:id/status', asyncHandler(supportTicketController.updateTicketStatus));
-router.delete('/:id', asyncHandler(supportTicketController.deleteTicket));
+router.post('/', asyncHandler(c.createTicket));
+router.get('/', asyncHandler(c.getTickets));
+router.get('/:id', asyncHandler(c.getTicketById));
+router.put('/:id/status', asyncHandler(c.updateStatus));
+router.put('/:id/assign', asyncHandler(c.assign));
+router.post('/:id/messages', asyncHandler(c.addNote));
 
 module.exports = router;

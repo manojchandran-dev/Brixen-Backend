@@ -20,7 +20,7 @@ function filterTree(tree, grantedModuleIds) {
   return tree
     .map((node) => {
       const children = filterTree(node.children, grantedModuleIds);
-      const selfGranted = grantedModuleIds.has(node.id);
+      const selfGranted = node.always_visible || grantedModuleIds.has(node.id);
       if (!selfGranted && children.length === 0) {
         return null;
       }
