@@ -22,7 +22,12 @@ const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || '';
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || '';
 const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || '';
 // .env values escape real newlines as "\n"; Firebase needs the actual character.
-const FIREBASE_PRIVATE_KEY = (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+// Also strips wrapping quotes, a common paste mistake when copying a `KEY="...\n..."` .env line
+// straight into a host's env var UI -- the quotes survive and break PEM parsing.
+const FIREBASE_PRIVATE_KEY = (process.env.FIREBASE_PRIVATE_KEY || '')
+  .trim()
+  .replace(/^"(.*)"$/s, '$1')
+  .replace(/\\n/g, '\n');
 
 module.exports = {
   PORT,
