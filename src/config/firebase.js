@@ -1,4 +1,5 @@
-const admin = require('firebase-admin');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getMessaging } = require('firebase-admin/messaging');
 const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } = require('./index');
 
 const configured = Boolean(FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY);
@@ -6,15 +7,15 @@ const configured = Boolean(FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREB
 // Only initialize when credentials are present, so the app still boots (and
 // the rest of the API still works) before FIREBASE_* env vars are set.
 const messaging = configured
-  ? admin
-      .initializeApp({
-        credential: admin.credential.cert({
+  ? getMessaging(
+      initializeApp({
+        credential: cert({
           projectId: FIREBASE_PROJECT_ID,
           clientEmail: FIREBASE_CLIENT_EMAIL,
           privateKey: FIREBASE_PRIVATE_KEY,
         }),
       })
-      .messaging()
+    )
   : {
       sendEachForMulticast() {
         throw new Error(
