@@ -1,7 +1,9 @@
-const prisma = require('../prisma/client');
-const { HttpError } = require('../utils/httpError');
-const prefixedId = require('../utils/prefixedId');
-const { normalizeAudience, resolveCompanyIds } = require('../utils/audience');
+const prisma = require('../../../prisma/client');
+const { HttpError } = require('../../../core/errors/httpError');
+const prefixedId = require('../../../utils/prefixedId');
+const { normalizeAudience, resolveCompanyIds } = require('../../../utils/audience');
+const deviceRepository = require('./deviceRepository');
+const fcm = require('./fcm');
 
 const PRIORITIES = ['normal', 'important', 'urgent'];
 const OPEN_ON_TAP = [
@@ -92,9 +94,67 @@ async function get(id) {
   return (await present([await find(id)]))[0];
 }
 
-// Moves a draft/scheduled notification to "sending" and queues one pending delivery per company.
+// Sends the notification to every registered device of each company and
+// updates each recipient row to its final delivered/failed state. A company
+// with no registered devices is "failed" immediately -- there's nowhere to send.
+async function sendToRecipients(id, companyIds) {
+  const notification = await prisma.push_notifications.findUnique({ where: { id } });
+  const deviceTokens = await deviceRepository.findManyByCompanyIds(companyIds);
+
+  const tokensByCompany = new Map();
+  for (const row of deviceTokens) {
+    if (!tokensByCompany.has(row.company_id)) tokensByCompany.set(row.company_id, []);
+    tokensByCompany.get(row.company_id).push(row.token);
+  }
+
+  // A thrown error here (misconfigured Firebase, provider outage) must not leave the
+  // notification stuck in "sending" with no way to retry -- treat it as every token
+  // having failed, so recipients settle to "failed" and the notification still closes out.
+  const allTokens = deviceTokens.map((row) => row.token);
+  let results = [];
+  if (allTokens.length) {
+    try {
+      results = await fcm.sendToTokens(allTokens, { title: notification.title, body: notification.message });
+    } catch (err) {
+      results = allTokens.map((token) => ({ token, success: false, error: err.message }));
+    }
+  }
+  const resultByToken = new Map(results.map((r) => [r.token, r]));
+
+  const staleTokens = results.filter((r) => r.error === 'messaging/registration-token-not-registered').map((r) => r.token);
+  if (staleTokens.length) {
+    await prisma.device_tokens.deleteMany({ where: { token: { in: staleTokens } } });
+  }
+
+  await Promise.all(
+    companyIds.map((company_id) => {
+      const companyResults = (tokensByCompany.get(company_id) || []).map((t) => resultByToken.get(t));
+      if (!companyResults.length) {
+        return prisma.push_notification_recipients.updateMany({
+          where: { notification_id: id, company_id },
+          data: { status: 'failed', error: 'No registered devices' },
+        });
+      }
+
+      const delivered = companyResults.some((r) => r?.success);
+      return prisma.push_notification_recipients.updateMany({
+        where: { notification_id: id, company_id },
+        data: delivered
+          ? { status: 'delivered', delivered_at: new Date(), error: null }
+          : { status: 'failed', error: companyResults.find((r) => r && !r.success)?.error || 'Delivery failed' },
+      });
+    })
+  );
+
+  await prisma.push_notifications.updateMany({ where: { id, status: 'sending' }, data: { status: 'sent' } });
+}
+
+// Moves a draft/scheduled notification to "sending", queues one pending delivery per
+// company, then actually sends via FCM and settles each recipient's final status.
 // The status guard is what keeps cancelled or deleted notifications from ever going out.
-// ponytail: two writes without a transaction; a crash between them leaves "sending" with no rows.
+// ponytail: writes without a transaction; a crash mid-way can leave "sending" with
+// some recipients still pending -- rerunning dispatch for the same id is safe (createMany
+// skips duplicates, and sendToRecipients just overwrites recipient status again).
 async function dispatch(id, companyIds) {
   const { count } = await prisma.push_notifications.updateMany({
     where: { id, status: { in: EDITABLE }, deleted_at: null },
@@ -106,6 +166,8 @@ async function dispatch(id, companyIds) {
     data: companyIds.map((company_id) => ({ notification_id: id, company_id })),
     skipDuplicates: true,
   });
+
+  await sendToRecipients(id, companyIds);
   return true;
 }
 
@@ -224,4 +286,33 @@ async function dispatchDue() {
   }
 }
 
-module.exports = { list, get, create, update, remove, duplicate, cancel, dispatchDue };
+const PLATFORMS = ['ios', 'android', 'web'];
+
+async function registerDevice(company_id, token, platform) {
+  if (typeof token !== 'string' || !token.trim()) {
+    throw new HttpError('token is required and must be a non-empty string');
+  }
+  assertOneOf('platform', platform, PLATFORMS);
+
+  return deviceRepository.upsert(company_id, token, platform);
+}
+
+async function unregisterDevice(token) {
+  if (typeof token !== 'string' || !token.trim()) {
+    throw new HttpError('token is required and must be a non-empty string');
+  }
+  await deviceRepository.removeByToken(token);
+}
+
+module.exports = {
+  list,
+  get,
+  create,
+  update,
+  remove,
+  duplicate,
+  cancel,
+  dispatchDue,
+  registerDevice,
+  unregisterDevice,
+};

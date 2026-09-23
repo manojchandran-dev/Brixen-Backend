@@ -1,18 +1,24 @@
 const { Router } = require('express');
-const wrap = require('../../utils/wrap');
-const caller = require('../../utils/caller');
-const requireSuperadmin = require('../../middleware/requireSuperadmin');
-const push = require('../../services/pushNotificationService');
+const asyncHandler = require('../../../middleware/asyncHandler');
+const authenticate = require('../../../middleware/auth.middleware');
+const roleMiddleware = require('../../../middleware/role.middleware');
+const pushNotificationController = require('./controller');
 
 const router = Router();
-router.use(requireSuperadmin);
 
-router.get('/', wrap((req) => push.list(req.query)));
-router.post('/', wrap((req) => push.create(req.body, caller(req)), 201));
-router.get('/:id', wrap((req) => push.get(req.params.id)));
-router.put('/:id', wrap((req) => push.update(req.params.id, req.body)));
-router.delete('/:id', wrap((req) => push.remove(req.params.id), 204));
-router.post('/:id/duplicate', wrap((req) => push.duplicate(req.params.id, caller(req)), 201));
-router.post('/:id/cancel', wrap((req) => push.cancel(req.params.id)));
+// A company's own device registration -- any logged-in company account, not
+// just superadmin, so these are registered before the gate below.
+router.post('/devices', authenticate, asyncHandler(pushNotificationController.registerDevice));
+router.delete('/devices', authenticate, asyncHandler(pushNotificationController.unregisterDevice));
+
+router.use(roleMiddleware);
+
+router.get('/', asyncHandler(pushNotificationController.list));
+router.post('/', asyncHandler(pushNotificationController.create));
+router.get('/:id', asyncHandler(pushNotificationController.get));
+router.put('/:id', asyncHandler(pushNotificationController.update));
+router.delete('/:id', asyncHandler(pushNotificationController.remove));
+router.post('/:id/duplicate', asyncHandler(pushNotificationController.duplicate));
+router.post('/:id/cancel', asyncHandler(pushNotificationController.cancel));
 
 module.exports = router;
