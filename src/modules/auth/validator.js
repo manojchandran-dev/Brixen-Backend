@@ -131,6 +131,55 @@ function validateResetPassword(req, res, next) {
   next();
 }
 
+function validateChangePassword(req, res, next) {
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+  const errors = [];
+
+  if (!currentPassword || typeof currentPassword !== 'string' || !currentPassword.trim()) {
+    errors.push('currentPassword is required and must be a non-empty string');
+  }
+
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+    errors.push('newPassword is required and must be at least 8 characters');
+  }
+
+  if (confirmPassword !== undefined && confirmPassword !== newPassword) {
+    errors.push('confirmPassword must match newPassword');
+  }
+
+  if (errors.length) {
+    return res.status(400).json({ success: false, errors });
+  }
+
+  next();
+}
+
+const PROFILE_STRING_FIELDS = ['owner_name', 'phone', 'secondary_email', 'website', 'email'];
+
+function validateUpdateMe(req, res, next) {
+  const errors = [];
+
+  if (Object.keys(req.body).length === 0) {
+    errors.push('At least one field is required to update');
+  }
+
+  for (const field of PROFILE_STRING_FIELDS) {
+    if (req.body[field] !== undefined && req.body[field] !== null && typeof req.body[field] !== 'string') {
+      errors.push(`${field} must be a string`);
+    }
+  }
+
+  if (req.body.email !== undefined && !req.body.email.trim()) {
+    errors.push('email must be a non-empty string');
+  }
+
+  if (errors.length) {
+    return res.status(400).json({ success: false, errors });
+  }
+
+  next();
+}
+
 module.exports = {
   validateLogin,
   validateRefresh,
@@ -139,4 +188,6 @@ module.exports = {
   validateForgotPassword,
   validateVerifyOtp,
   validateResetPassword,
+  validateChangePassword,
+  validateUpdateMe,
 };

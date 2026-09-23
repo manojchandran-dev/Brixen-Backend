@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const asyncHandler = require('../../middleware/asyncHandler');
-const authenticate = require('../../middleware/authenticate');
-const authController = require('../../controllers/authController');
+const authenticate = require('../../middleware/auth.middleware');
+const authController = require('./controller');
 const {
   validateLogin,
   validateRefresh,
@@ -10,7 +10,9 @@ const {
   validateForgotPassword,
   validateVerifyOtp,
   validateResetPassword,
-} = require('../../validators/authValidator');
+  validateChangePassword,
+  validateUpdateMe,
+} = require('./validator');
 
 const router = Router();
 
@@ -22,5 +24,8 @@ router.post('/pin/verify', validateVerifyPin, asyncHandler(authController.verify
 router.post('/forgot-password', validateForgotPassword, asyncHandler(authController.forgotPassword));
 router.post('/verify-otp', validateVerifyOtp, asyncHandler(authController.verifyOtp));
 router.post('/reset-password', validateResetPassword, asyncHandler(authController.resetPassword));
+router.post('/change-password', authenticate, validateChangePassword, asyncHandler(authController.changePassword));
+router.get('/me', authenticate, asyncHandler(authController.me));
+router.put('/me', authenticate, validateUpdateMe, asyncHandler(authController.updateMe));
 
 module.exports = router;

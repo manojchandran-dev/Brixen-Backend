@@ -1,5 +1,5 @@
-const authService = require('../services/authService');
-const { success, error } = require('../utils/apiResponse');
+const authService = require('./service');
+const { success, error } = require('../../core/responses/apiResponse');
 
 async function login(req, res) {
   const { email, password } = req.body;
@@ -106,6 +106,44 @@ async function resetPassword(req, res) {
   }
 }
 
+async function changePassword(req, res) {
+  const { currentPassword, newPassword } = req.body;
+
+  try {
+    await authService.changePassword(req.user.sub, currentPassword, newPassword);
+    return success(res, { message: 'Password changed successfully' });
+  } catch (err) {
+    if (err instanceof authService.AuthError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
+async function me(req, res) {
+  try {
+    const result = await authService.getMe(req.user.sub);
+    return success(res, result);
+  } catch (err) {
+    if (err instanceof authService.AuthError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
+async function updateMe(req, res) {
+  try {
+    const result = await authService.updateMe(req.user.sub, req.body);
+    return success(res, result);
+  } catch (err) {
+    if (err instanceof authService.AuthError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
 module.exports = {
   login,
   refresh,
@@ -115,4 +153,7 @@ module.exports = {
   forgotPassword,
   verifyOtp,
   resetPassword,
+  changePassword,
+  me,
+  updateMe,
 };

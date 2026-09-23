@@ -1,12 +1,14 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const userRepository = require('../repositories/userRepository');
-const refreshTokenRepository = require('../repositories/refreshTokenRepository');
-const passwordResetRepository = require('../repositories/passwordResetRepository');
-const companyRepository = require('../repositories/companyRepository');
-const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../utils/tokens');
-const { sendOtpEmail } = require('../utils/mailer');
+const {
+  users: userRepository,
+  refreshTokens: refreshTokenRepository,
+  passwordResets: passwordResetRepository,
+} = require('./repository');
+const companyRepository = require('../companies/repository');
+const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../../utils/jwt');
+const { sendOtpEmail } = require('../../utils/mailer');
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const RESET_TOKEN_TTL_MS = 10 * 60 * 1000;
@@ -230,6 +232,57 @@ async function resetPassword(resetToken, newPassword) {
   await refreshTokenRepository.revokeAllForUser(record.user_id);
 }
 
+// Authenticated password change: requires knowing the current password, unlike
+// the forgot-password OTP flow above. Revokes other sessions the same way.
+async function changePassword(userId, currentPassword, newPassword) {
+  const user = await userRepository.findById(userId);
+  if (!user) {
+    throw new AuthError('User not found', 404);
+  }
+
+  const currentMatches = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!currentMatches) {
+    throw new AuthError('Current password is incorrect');
+  }
+
+  const password_hash = await bcrypt.hash(newPassword, 10);
+  await userRepository.update(userId, { password_hash });
+  await refreshTokenRepository.revokeAllForUser(userId);
+}
+
+async function getMe(userId) {
+  const user = await userRepository.findById(userId);
+  if (!user) {
+    throw new AuthError('User not found', 404);
+  }
+  return toUserResponse(user);
+}
+
+// Self-service profile fields, editable per role -- deliberately narrower than
+// the admin-facing company update (no status/company_code/onboarding fields).
+const COMPANY_PROFILE_FIELDS = ['owner_name', 'phone', 'secondary_email', 'website'];
+
+async function updateMe(userId, data) {
+  const user = await userRepository.findById(userId);
+  if (!user) {
+    throw new AuthError('User not found', 404);
+  }
+
+  if (user.user_type === 'company' && user.company_id) {
+    const payload = COMPANY_PROFILE_FIELDS.reduce((acc, field) => {
+      if (data[field] !== undefined) acc[field] = data[field];
+      return acc;
+    }, {});
+    if (Object.keys(payload).length) {
+      await companyRepository.update(user.company_id, payload);
+    }
+  } else if (data.email !== undefined) {
+    await userRepository.update(userId, { email: data.email });
+  }
+
+  return getMe(userId);
+}
+
 module.exports = {
   AuthError,
   login,
@@ -240,4 +293,7 @@ module.exports = {
   forgotPassword,
   verifyOtp,
   resetPassword,
+  changePassword,
+  getMe,
+  updateMe,
 };
