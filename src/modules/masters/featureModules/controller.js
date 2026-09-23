@@ -1,7 +1,7 @@
-const moduleService = require('../services/moduleService');
-const employeeRepository = require('../repositories/employeeRepository');
-const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId } = require('../utils/companyScope');
+const moduleService = require('./service');
+const employeeRepository = require('../../employees/repository');
+const { success, error } = require('../../../core/responses/apiResponse');
+const { parseCompanyId } = require('../../../utils/companyScope');
 
 async function getModules(req, res) {
   const { user_type } = req.query;

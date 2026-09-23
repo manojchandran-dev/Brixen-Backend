@@ -1,6 +1,6 @@
-const supportTicketService = require('../services/supportTicketService');
-const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId, resolveListScope } = require('../utils/companyScope');
+const supportTicketService = require('./service');
+const { success, error } = require('../../../core/responses/apiResponse');
+const { parseCompanyId, resolveListScope } = require('../../../utils/companyScope');
 
 const isSuperadmin = (req) => req.query.user_type === 'superadmin';
 

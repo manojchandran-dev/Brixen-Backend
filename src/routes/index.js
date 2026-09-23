@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const v1Routes = require('./v1');
-const notFound = require('../middleware/notFound');
+const notFound = require('../middleware/notFound.middleware');
 
 const router = Router();
 

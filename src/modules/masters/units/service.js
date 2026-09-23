@@ -1,7 +1,7 @@
 const { Prisma } = require('@prisma/client');
-const unitRepository = require('../repositories/unitRepository');
-const companyRepository = require('../repositories/companyRepository');
-const { generateUnitId } = require('../utils/unitId');
+const unitRepository = require('./repository');
+const companyRepository = require('../../companies/repository');
+const { generateUnitId } = require('../../../utils/unitId');
 
 const MAX_ID_ATTEMPTS = 5;
 

@@ -1,6 +1,6 @@
-const employeeService = require('../services/employeeService');
-const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId, resolveListScope } = require('../utils/companyScope');
+const employeeService = require('./service');
+const { success, error } = require('../../core/responses/apiResponse');
+const { parseCompanyId, resolveListScope } = require('../../utils/companyScope');
 
 async function createEmployee(req, res) {
   const company_id = parseCompanyId(req.body.company_id);

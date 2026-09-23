@@ -1,6 +1,6 @@
-const unitService = require('../services/unitService');
-const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId, resolveListScope } = require('../utils/companyScope');
+const unitService = require('./service');
+const { success, error } = require('../../../core/responses/apiResponse');
+const { parseCompanyId, resolveListScope } = require('../../../utils/companyScope');
 
 function isValidId(raw) {
   return /^UNIT\d{12}$/.test(raw);

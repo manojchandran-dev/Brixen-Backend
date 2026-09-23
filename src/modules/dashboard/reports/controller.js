@@ -1,6 +1,6 @@
-const reportService = require('../services/reportService');
-const { success, error } = require('../utils/apiResponse');
-const { resolveOptionalScope } = require('../utils/companyScope');
+const reportService = require('./service');
+const { success, error } = require('../../../core/responses/apiResponse');
+const { resolveOptionalScope } = require('../../../utils/companyScope');
 
 async function getReportSummary(req, res) {
   const { company_id, ok } = resolveOptionalScope(req.query);

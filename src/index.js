@@ -1,7 +1,7 @@
 const { PORT } = require('./config');
 const app = require('./app');
-const pushNotifications = require('./services/pushNotificationService');
-const announcements = require('./services/announcementService');
+const pushNotifications = require('./modules/notifications/push/service');
+const announcements = require('./modules/notifications/announcements/service');
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

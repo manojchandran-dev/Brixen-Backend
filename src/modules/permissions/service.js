@@ -1,8 +1,8 @@
 const { Prisma } = require('@prisma/client');
-const permissionRepository = require('../repositories/permissionRepository');
-const companyRepository = require('../repositories/companyRepository');
-const moduleRepository = require('../repositories/moduleRepository');
-const { generatePermissionId } = require('../utils/permissionId');
+const permissionRepository = require('./repository');
+const companyRepository = require('../companies/repository');
+const moduleRepository = require('../masters/featureModules/repository');
+const { generatePermissionId } = require('../../utils/permissionId');
 
 const MAX_ID_ATTEMPTS = 5;
 const FLAG_FIELDS = ['view', 'create', 'edit', 'delete'];

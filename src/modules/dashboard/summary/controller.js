@@ -1,6 +1,6 @@
-const dashboardService = require('../services/dashboardService');
-const { success, error } = require('../utils/apiResponse');
-const { resolveOptionalScope } = require('../utils/companyScope');
+const dashboardService = require('./service');
+const { success, error } = require('../../../core/responses/apiResponse');
+const { resolveOptionalScope } = require('../../../utils/companyScope');
 
 async function getDashboardSummary(req, res) {
   const { company_id, ok } = resolveOptionalScope(req.query);

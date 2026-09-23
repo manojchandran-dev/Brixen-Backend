@@ -1,6 +1,6 @@
 const { Router } = require('express');
-const asyncHandler = require('../../middleware/asyncHandler');
-const moduleController = require('../../controllers/moduleController');
+const asyncHandler = require('../../../middleware/asyncHandler');
+const moduleController = require('./controller');
 
 const router = Router();
 

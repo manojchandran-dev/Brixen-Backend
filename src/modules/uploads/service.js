@@ -1,4 +1,4 @@
-const cloudinary = require('../config/cloudinary');
+const cloudinary = require('../../config/cloudinary');
 
 const ALLOWED_FOLDERS = ['products', 'companies', 'employees', 'customers', 'sales', 'expenses', 'support', 'misc'];
 

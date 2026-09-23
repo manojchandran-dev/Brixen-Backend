@@ -1,4 +1,4 @@
-const prisma = require('../prisma/client');
+const prisma = require('../../../prisma/client');
 
 const INCLUDE = {
   companies: { select: { company_name: true } },

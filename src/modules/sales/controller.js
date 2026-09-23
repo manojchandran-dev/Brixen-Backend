@@ -1,6 +1,6 @@
-const saleService = require('../services/saleService');
-const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId, resolveListScope } = require('../utils/companyScope');
+const saleService = require('./service');
+const { success, error } = require('../../core/responses/apiResponse');
+const { parseCompanyId, resolveListScope } = require('../../utils/companyScope');
 
 function isValidId(raw) {
   return /^SALE\d{12}$/.test(raw);

@@ -1,6 +1,6 @@
-const chatService = require('../services/chatService');
-const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId } = require('../utils/companyScope');
+const chatService = require('./service');
+const { success, error } = require('../../../core/responses/apiResponse');
+const { parseCompanyId } = require('../../../utils/companyScope');
 
 const isSuperadmin = (req) => req.query.user_type === 'superadmin';
 

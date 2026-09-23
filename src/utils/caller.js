@@ -1,4 +1,4 @@
-const { verifyAccessToken } = require('./tokens');
+const { verifyAccessToken } = require('./jwt');
 
 // Who made the request: the login token's email when present, else "superadmin".
 module.exports = (req) => {

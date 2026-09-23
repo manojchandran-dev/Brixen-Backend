@@ -1,7 +1,7 @@
-const supportTicketRepository = require('../repositories/supportTicketRepository');
-const companyRepository = require('../repositories/companyRepository');
-const notificationService = require('./notificationService');
-const { generateTicketId, generateTicketMessageId } = require('../utils/ticketId');
+const supportTicketRepository = require('./repository');
+const companyRepository = require('../../companies/repository');
+const notificationService = require('../../notifications/inApp/service');
+const { generateTicketId, generateTicketMessageId } = require('../../../utils/ticketId');
 
 const CATEGORIES = ['technical', 'billing', 'featureRequest', 'bug', 'other'];
 const PRIORITIES = ['low', 'medium', 'high', 'urgent'];

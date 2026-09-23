@@ -1,10 +1,7 @@
 const { Router } = require('express');
-const asyncHandler = require('../../middleware/asyncHandler');
-const expenseCategoryController = require('../../controllers/expenseCategoryController');
-const {
-  validateCreateExpenseCategory,
-  validateUpdateExpenseCategory,
-} = require('../../validators/expenseCategoryValidator');
+const asyncHandler = require('../../../middleware/asyncHandler');
+const expenseCategoryController = require('./controller');
+const { validateCreateExpenseCategory, validateUpdateExpenseCategory } = require('./validator');
 
 const router = Router();
 

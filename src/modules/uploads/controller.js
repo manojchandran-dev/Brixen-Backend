@@ -1,5 +1,5 @@
-const uploadService = require('../services/uploadService');
-const { success, error } = require('../utils/apiResponse');
+const uploadService = require('./service');
+const { success, error } = require('../../core/responses/apiResponse');
 
 const isAudio = (file) => file.mimetype.startsWith('audio/') || /\.m4a$/i.test(file.originalname);
 

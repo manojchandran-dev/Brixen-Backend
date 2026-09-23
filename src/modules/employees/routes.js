@@ -1,12 +1,12 @@
 const { Router } = require('express');
 const asyncHandler = require('../../middleware/asyncHandler');
-const employeeController = require('../../controllers/employeeController');
+const employeeController = require('./controller');
 const {
   validateCreateEmployee,
   validateUpdateEmployee,
   validateEmployeeStep2,
   validateEmployeeStep3,
-} = require('../../validators/employeeValidator');
+} = require('./validator');
 
 const router = Router();
 

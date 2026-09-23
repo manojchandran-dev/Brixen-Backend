@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const asyncHandler = require('../../middleware/asyncHandler');
-const expenseController = require('../../controllers/expenseController');
-const { validateCreateExpense, validateUpdateExpense } = require('../../validators/expenseValidator');
+const expenseController = require('./controller');
+const { validateCreateExpense, validateUpdateExpense } = require('./validator');
 
 const router = Router();
 

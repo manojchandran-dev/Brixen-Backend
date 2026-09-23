@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const asyncHandler = require('../../middleware/asyncHandler');
-const upload = require('../../middleware/upload');
-const uploadController = require('../../controllers/uploadController');
+const upload = require('../../middleware/upload.middleware');
+const uploadController = require('./controller');
 
 const router = Router();
 

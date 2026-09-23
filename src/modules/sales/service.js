@@ -1,11 +1,10 @@
 const { Prisma } = require('@prisma/client');
-const saleRepository = require('../repositories/saleRepository');
-const customerRepository = require('../repositories/customerRepository');
-const companyRepository = require('../repositories/companyRepository');
-const productRepository = require('../repositories/productRepository');
-const saleItemRepository = require('../repositories/saleItemRepository');
-const { generateSaleId } = require('../utils/saleId');
-const { generateSaleItemId } = require('../utils/saleItemId');
+const { sales: saleRepository, saleItems: saleItemRepository } = require('./repository');
+const customerRepository = require('../customers/repository');
+const companyRepository = require('../companies/repository');
+const productRepository = require('../products/repository');
+const { generateSaleId } = require('../../utils/saleId');
+const { generateSaleItemId } = require('../../utils/saleItemId');
 
 const MAX_ID_ATTEMPTS = 5;
 

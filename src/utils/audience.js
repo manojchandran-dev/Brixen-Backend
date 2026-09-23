@@ -1,5 +1,5 @@
 const prisma = require('../prisma/client');
-const { HttpError } = require('./httpError');
+const { HttpError } = require('../core/errors/httpError');
 
 const TYPES = ['allCompanies', 'selectedCompanies', 'byPlan', 'byStatus'];
 

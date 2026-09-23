@@ -1,6 +1,6 @@
-const expenseCategoryService = require('../services/expenseCategoryService');
-const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId, resolveListScope } = require('../utils/companyScope');
+const expenseCategoryService = require('./service');
+const { success, error } = require('../../../core/responses/apiResponse');
+const { parseCompanyId, resolveListScope } = require('../../../utils/companyScope');
 
 function isValidId(raw) {
   return /^EXCAT\d{11}$/.test(raw);

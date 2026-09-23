@@ -1,5 +1,5 @@
-const moduleRepository = require('../repositories/moduleRepository');
-const permissionRepository = require('../repositories/permissionRepository');
+const moduleRepository = require('./repository');
+const permissionRepository = require('../../permissions/repository');
 
 function buildTree(modules) {
   const byId = new Map(modules.map((m) => [m.id, { ...m, children: [] }]));

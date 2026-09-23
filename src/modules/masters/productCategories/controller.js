@@ -1,6 +1,6 @@
-const productCategoryService = require('../services/productCategoryService');
-const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId, resolveListScope } = require('../utils/companyScope');
+const productCategoryService = require('./service');
+const { success, error } = require('../../../core/responses/apiResponse');
+const { parseCompanyId, resolveListScope } = require('../../../utils/companyScope');
 
 function isValidId(raw) {
   return /^PRCAT\d{11}$/.test(raw);

@@ -1,6 +1,6 @@
-const companyCategoryService = require('../services/companyCategoryService');
-const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId, resolveListScope } = require('../utils/companyScope');
+const companyCategoryService = require('./service');
+const { success, error } = require('../../../core/responses/apiResponse');
+const { parseCompanyId, resolveListScope } = require('../../../utils/companyScope');
 
 function isValidId(raw) {
   return /^COCAT\d{11}$/.test(raw);

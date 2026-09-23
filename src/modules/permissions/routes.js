@@ -1,11 +1,11 @@
 const { Router } = require('express');
 const asyncHandler = require('../../middleware/asyncHandler');
-const permissionController = require('../../controllers/permissionController');
+const permissionController = require('./controller');
 const {
   validateCreatePermission,
   validateBulkCreatePermissions,
   validateUpdatePermission,
-} = require('../../validators/permissionValidator');
+} = require('./validator');
 
 const router = Router();
 

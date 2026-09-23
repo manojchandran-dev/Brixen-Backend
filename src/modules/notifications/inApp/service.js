@@ -1,5 +1,5 @@
-const notificationRepository = require('../repositories/notificationRepository');
-const { generateNotificationId } = require('../utils/notificationId');
+const notificationRepository = require('./repository');
+const { generateNotificationId } = require('../../../utils/notificationId');
 
 class NotificationError extends Error {
   constructor(message, status = 400) {

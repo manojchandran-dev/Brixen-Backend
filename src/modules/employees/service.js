@@ -1,5 +1,5 @@
-const employeeRepository = require('../repositories/employeeRepository');
-const companyRepository = require('../repositories/companyRepository');
+const employeeRepository = require('./repository');
+const companyRepository = require('../companies/repository');
 
 const EMPLOYMENT_FIELDS = ['department', 'designation', 'joining_date', 'manager_id', 'employment_type', 'salary', 'status'];
 const EMPLOYMENT_MARKER = ['department', 'designation'];

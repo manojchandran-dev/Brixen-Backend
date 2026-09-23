@@ -1,5 +1,5 @@
-const companyService = require('./../services/companyService');
-const { success, error } = require('../utils/apiResponse');
+const companyService = require('./service');
+const { success, error } = require('../../core/responses/apiResponse');
 
 async function createCompany(req, res) {
   const company = await companyService.createCompany(req.body);

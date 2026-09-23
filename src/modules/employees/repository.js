@@ -1,4 +1,4 @@
-const prisma = require('../prisma/client');
+const prisma = require('../../prisma/client');
 
 function create(data) {
   return prisma.employees.create({ data });

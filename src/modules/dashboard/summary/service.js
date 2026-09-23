@@ -1,4 +1,4 @@
-const prisma = require('../prisma/client');
+const prisma = require('../../../prisma/client');
 
 const WEEKLY_SIGNUP_WEEKS = 11;
 const RECENT_SALES_LIMIT = 5;

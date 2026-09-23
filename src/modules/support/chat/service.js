@@ -1,4 +1,4 @@
-const prisma = require('../prisma/client');
+const prisma = require('../../../prisma/client');
 
 const TYPES = ['text', 'image', 'voice'];
 const MAX_LIMIT = 100;

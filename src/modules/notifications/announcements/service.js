@@ -1,7 +1,7 @@
-const prisma = require('../prisma/client');
-const { HttpError } = require('../utils/httpError');
-const prefixedId = require('../utils/prefixedId');
-const { normalizeAudience, resolveCompanyIds } = require('../utils/audience');
+const prisma = require('../../../prisma/client');
+const { HttpError } = require('../../../core/errors/httpError');
+const prefixedId = require('../../../utils/prefixedId');
+const { normalizeAudience, resolveCompanyIds } = require('../../../utils/audience');
 
 const STATUSES = ['draft', 'scheduled', 'published', 'cancelled'];
 const INPUT_STATUSES = ['draft', 'scheduled', 'published'];

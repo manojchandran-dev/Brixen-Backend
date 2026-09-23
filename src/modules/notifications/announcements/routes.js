@@ -1,31 +1,21 @@
 const { Router } = require('express');
-const wrap = require('../../utils/wrap');
-const caller = require('../../utils/caller');
-const { HttpError } = require('../../utils/httpError');
-const { parseCompanyId } = require('../../utils/companyScope');
-const requireSuperadmin = require('../../middleware/requireSuperadmin');
-const announcements = require('../../services/announcementService');
+const asyncHandler = require('../../../middleware/asyncHandler');
+const roleMiddleware = require('../../../middleware/role.middleware');
+const announcementController = require('./controller');
 
 const router = Router();
 
 // The one route companies call (registered before the superadmin gate).
-router.post(
-  '/:id/view',
-  wrap((req) => {
-    const company_id = parseCompanyId(req.query.company_id);
-    if (!company_id) throw new HttpError('company_id is required and must be a positive integer');
-    return announcements.recordView(req.params.id, company_id);
-  })
-);
+router.post('/:id/view', asyncHandler(announcementController.recordView));
 
-router.use(requireSuperadmin);
+router.use(roleMiddleware);
 
-router.get('/', wrap((req) => announcements.list(req.query)));
-router.post('/', wrap((req) => announcements.create(req.body, caller(req)), 201));
-router.get('/:id', wrap((req) => announcements.get(req.params.id)));
-router.put('/:id', wrap((req) => announcements.update(req.params.id, req.body)));
-router.delete('/:id', wrap((req) => announcements.remove(req.params.id), 204));
-router.post('/:id/duplicate', wrap((req) => announcements.duplicate(req.params.id, caller(req)), 201));
-router.post('/:id/unpublish', wrap((req) => announcements.unpublish(req.params.id)));
+router.get('/', asyncHandler(announcementController.list));
+router.post('/', asyncHandler(announcementController.create));
+router.get('/:id', asyncHandler(announcementController.get));
+router.put('/:id', asyncHandler(announcementController.update));
+router.delete('/:id', asyncHandler(announcementController.remove));
+router.post('/:id/duplicate', asyncHandler(announcementController.duplicate));
+router.post('/:id/unpublish', asyncHandler(announcementController.unpublish));
 
 module.exports = router;

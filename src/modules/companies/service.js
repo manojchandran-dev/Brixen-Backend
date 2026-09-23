@@ -1,11 +1,10 @@
 const { Prisma } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
-const companyRepository = require('../repositories/companyRepository');
-const userRepository = require('../repositories/userRepository');
-const refreshTokenRepository = require('../repositories/refreshTokenRepository');
-const { generateCompanyCode } = require('../utils/companyCode');
-const { generateTempPassword } = require('../utils/tempPassword');
-const { sendWelcomeEmail, sendDeactivationEmail } = require('../utils/mailer');
+const companyRepository = require('./repository');
+const { users: userRepository, refreshTokens: refreshTokenRepository } = require('../auth/repository');
+const { generateCompanyCode } = require('../../utils/companyCode');
+const { generateTempPassword } = require('../../utils/tempPassword');
+const { sendWelcomeEmail, sendDeactivationEmail } = require('../../utils/mailer');
 
 const STEP2_FIELDS = ['owner_name', 'email', 'phone', 'secondary_email', 'website'];
 const STEP3_FIELDS = ['address', 'city', 'state', 'pincode'];

@@ -1,6 +1,6 @@
-const notificationService = require('../services/notificationService');
-const { success, error } = require('../utils/apiResponse');
-const { parseCompanyId } = require('../utils/companyScope');
+const notificationService = require('./service');
+const { success, error } = require('../../../core/responses/apiResponse');
+const { parseCompanyId } = require('../../../utils/companyScope');
 
 function isValidId(raw) {
   return /^NOTIF\d{11}$/.test(raw);

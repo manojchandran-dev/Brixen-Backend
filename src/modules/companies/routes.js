@@ -1,13 +1,13 @@
 const { Router } = require('express');
 const asyncHandler = require('../../middleware/asyncHandler');
-const companyController = require('../../controllers/companyController');
+const companyController = require('./controller');
 const {
   validateCreateCompany,
   validateUpdateCompany,
   validateStep2,
   validateStep3,
   validateUpdateStatus,
-} = require('../../validators/companyValidator');
+} = require('./validator');
 
 const router = Router();
 
