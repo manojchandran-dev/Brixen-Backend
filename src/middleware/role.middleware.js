@@ -1,4 +1,6 @@
 const { error } = require('../core/responses/apiResponse');
 
+// Superadmin only. req.auth comes from the access token (session.middleware),
+// not from anything the client sends.
 module.exports = (req, res, next) =>
-  req.query.user_type === 'superadmin' ? next() : error(res, 'Only superadmin can access this', 403);
+  req.auth?.isSuperadmin ? next() : error(res, 'Only superadmin can access this', 403);

@@ -12,19 +12,37 @@ const permissionRoutes = require('../../modules/permissions/routes');
 const uploadRoutes = require('../../modules/uploads/routes');
 const supportRoutes = require('../../modules/support/routes');
 const notificationRoutes = require('../../modules/notifications/routes');
+const asyncHandler = require('../../middleware/asyncHandler');
+const session = require('../../middleware/session.middleware');
+const roleMiddleware = require('../../middleware/role.middleware');
+const requirePermission = require('../../middleware/permission.middleware');
+const { error } = require('../../core/responses/apiResponse');
+
+// Companies are managed by the superadmin; a company user may only read its own record.
+function companyAccess(req, res, next) {
+  if (req.auth.isSuperadmin) return next();
+  const ownRecord = req.method === 'GET' && req.path.replace(/\/+$/, '') === `/${req.auth.companyId}`;
+  return ownRecord ? next() : error(res, 'Only superadmin can access this', 403);
+}
 
 const router = Router();
 
-router.use('/companies', companyRoutes);
+// Public (login, refresh, password reset); its private routes check the token themselves.
 router.use('/auth', authRoutes);
-router.use('/employees', employeeRoutes);
+
+// Everything below needs a valid access token; identity and company come from it.
+router.use(asyncHandler(session));
+
+router.use('/companies', companyAccess, companyRoutes);
+router.use('/employees', requirePermission('Employees'), employeeRoutes);
 router.use(mastersRoutes);
-router.use('/expenses', expenseRoutes);
-router.use('/customers', customerRoutes);
-router.use('/sales', saleRoutes);
+router.use('/expenses', requirePermission('Expenses'), expenseRoutes);
+router.use('/customers', requirePermission('Customers'), customerRoutes);
+router.use('/sales', requirePermission('Sales'), saleRoutes);
 router.use(dashboardRoutes);
-router.use('/products', productRoutes);
-router.use('/permissions', permissionRoutes);
+router.use('/products', requirePermission('Products'), productRoutes);
+// Companies may read their own permissions; only superadmin changes them.
+router.use('/permissions', (req, res, next) => (req.method === 'GET' ? next() : roleMiddleware(req, res, next)), permissionRoutes);
 router.use('/uploads', uploadRoutes);
 router.use(supportRoutes);
 router.use(notificationRoutes);
