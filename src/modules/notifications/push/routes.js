@@ -10,6 +10,7 @@ const router = Router();
 // just superadmin, so these are registered before the gate below.
 router.post('/devices', authenticate, asyncHandler(pushNotificationController.registerDevice));
 router.delete('/devices', authenticate, asyncHandler(pushNotificationController.unregisterDevice));
+router.post('/:id/opened', authenticate, asyncHandler(pushNotificationController.markOpened));
 
 router.use(roleMiddleware);
 

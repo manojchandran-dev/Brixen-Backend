@@ -215,6 +215,9 @@ async function updateCompanyStatus(id, status) {
 }
 
 async function deleteCompany(id) {
+  if (!(await companyRepository.findById(id))) {
+    throw new CompanyError('Company not found', 404);
+  }
   return companyRepository.delete(id);
 }
 

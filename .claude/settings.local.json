@@ -13,7 +13,12 @@
       "Bash(node -e \"console.log\\('JWT_ACCESS_SECRET=' + require\\('crypto'\\).randomBytes\\(48\\).toString\\('hex'\\)\\)\")",
       "Bash(node -e \"console.log\\('JWT_REFRESH_SECRET=' + require\\('crypto'\\).randomBytes\\(48\\).toString\\('hex'\\)\\)\")",
       "Bash(curl -s -o /dev/null -w \"status: %{http_code}, time: %{time_total}s\\\\n\" https://brixen-backend.onrender.com/api/health)",
-      "Bash(nslookup brixen-backend.onrender.com)"
+      "Bash(nslookup brixen-backend.onrender.com)",
+      "Bash(node -e \"require\\('./src/app'\\); console.log\\('OK: require graph loads without FIREBASE_* set'\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"require\\('./src/app'\\); console.log\\('OK: require graph loads'\\)\")",
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(grep -x \"\\\\.env$\")"
     ]
   }
 }

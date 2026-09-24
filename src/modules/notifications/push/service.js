@@ -5,7 +5,7 @@ const { normalizeAudience, resolveCompanyIds } = require('../../../utils/audienc
 const deviceRepository = require('./deviceRepository');
 const fcm = require('./fcm');
 
-const PRIORITIES = ['normal', 'important', 'urgent'];
+const PRIORITIES = ['normal', 'high', 'important', 'urgent'];
 const OPEN_ON_TAP = [
   'none', 'dashboard', 'subscription', 'billing', 'attendance', 'payroll',
   'inventory', 'production', 'support', 'announcement', 'specificPage',
@@ -53,13 +53,21 @@ function validate(b) {
 }
 
 async function deliveryCounts(ids) {
-  const rows = await prisma.push_notification_recipients.groupBy({
-    by: ['notification_id', 'status'],
-    where: { notification_id: { in: ids } },
-    _count: { _all: true },
-  });
+  const [rows, opened] = await Promise.all([
+    prisma.push_notification_recipients.groupBy({
+      by: ['notification_id', 'status'],
+      where: { notification_id: { in: ids } },
+      _count: { _all: true },
+    }),
+    prisma.push_notification_recipients.groupBy({
+      by: ['notification_id'],
+      where: { notification_id: { in: ids }, opened_at: { not: null } },
+      _count: { _all: true },
+    }),
+  ]);
   const out = {};
   for (const r of rows) (out[r.notification_id] ??= {})[r.status] = r._count._all;
+  for (const r of opened) (out[r.notification_id] ??= {}).opened = r._count._all;
   return out;
 }
 
@@ -79,6 +87,7 @@ async function present(rows) {
     recipients: n.recipients,
     delivered: counts[n.id]?.delivered ?? 0,
     failed: counts[n.id]?.failed ?? 0,
+    opened: counts[n.id]?.opened ?? 0,
     created_at: n.created_at,
     created_by: n.created_by,
   }));
@@ -114,7 +123,17 @@ async function sendToRecipients(id, companyIds) {
   let results = [];
   if (allTokens.length) {
     try {
-      results = await fcm.sendToTokens(allTokens, { title: notification.title, body: notification.message });
+      results = await fcm.sendToTokens(allTokens, {
+        title: notification.title,
+        body: notification.message,
+        priority: notification.priority,
+        // What the app needs on tap: where to go, and which push to mark opened.
+        data: {
+          notification_id: id,
+          open_on_tap: notification.open_on_tap,
+          specific_page_route: notification.specific_page_route || '',
+        },
+      });
     } catch (err) {
       results = allTokens.map((token) => ({ token, success: false, error: err.message }));
     }
@@ -286,6 +305,15 @@ async function dispatchDue() {
   }
 }
 
+// A company tapped the push. Opened counts once per company (first tap wins);
+// repeat taps or a push this company never received are silently ignored.
+async function markOpened(id, company_id) {
+  await prisma.push_notification_recipients.updateMany({
+    where: { notification_id: id, company_id, opened_at: null },
+    data: { opened_at: new Date() },
+  });
+}
+
 const PLATFORMS = ['ios', 'android', 'web'];
 
 async function registerDevice(company_id, token, platform) {
@@ -313,6 +341,7 @@ module.exports = {
   duplicate,
   cancel,
   dispatchDue,
+  markOpened,
   registerDevice,
   unregisterDevice,
 };

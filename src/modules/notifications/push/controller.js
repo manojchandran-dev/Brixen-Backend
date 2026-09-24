@@ -50,7 +50,11 @@ async function registerDevice(req, res) {
     async () => {
       const user = await userRepository.findById(req.user.sub);
       if (!user || !user.company_id) {
-        throw new HttpError('Only company accounts can register a device', 403);
+        // Pushes go to companies only. A device now signed in as a non-company
+        // account (e.g. switched to superadmin) must stop getting the pushes of
+        // whichever company last registered it.
+        await pushNotificationService.unregisterDevice(req.body.token);
+        return null;
       }
       return pushNotificationService.registerDevice(user.company_id, req.body.token, req.body.platform);
     },
@@ -58,8 +62,20 @@ async function registerDevice(req, res) {
   );
 }
 
+async function markOpened(req, res) {
+  return run(
+    res,
+    async () => {
+      const user = await userRepository.findById(req.user.sub);
+      if (user?.company_id) await pushNotificationService.markOpened(req.params.id, user.company_id);
+      return null;
+    },
+    204
+  );
+}
+
 async function unregisterDevice(req, res) {
   return run(res, () => pushNotificationService.unregisterDevice(req.body.token), 204);
 }
 
-module.exports = { list, create, get, update, remove, duplicate, cancel, registerDevice, unregisterDevice };
+module.exports = { list, create, get, update, remove, duplicate, cancel, markOpened, registerDevice, unregisterDevice };

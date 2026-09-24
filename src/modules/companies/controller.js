@@ -97,7 +97,14 @@ async function deleteCompany(req, res) {
     return error(res, 'Invalid company id', 400);
   }
 
-  await companyService.deleteCompany(id);
+  try {
+    await companyService.deleteCompany(id);
+  } catch (err) {
+    if (err instanceof companyService.CompanyError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
   return res.status(204).send();
 }
 

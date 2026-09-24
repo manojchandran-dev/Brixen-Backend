@@ -23,8 +23,23 @@ function update(id, data) {
   });
 }
 
+// Most company-owned tables are onDelete: Restrict, so their rows go first,
+// children before the rows they reference (sales -> products, expenses ->
+// categories). Tables marked Cascade in the schema clean themselves up.
 function deleteById(id) {
-  return prisma.companies.delete({ where: { id } });
+  const where = { company_id: id };
+  return prisma.$transaction([
+    prisma.sales.deleteMany({ where }),
+    prisma.expenses.deleteMany({ where }),
+    prisma.products.deleteMany({ where }),
+    prisma.customers.deleteMany({ where }),
+    prisma.employees.deleteMany({ where }),
+    prisma.expense_categories.deleteMany({ where }),
+    prisma.product_categories.deleteMany({ where }),
+    prisma.units.deleteMany({ where }),
+    prisma.company_categories.deleteMany({ where }),
+    prisma.companies.delete({ where: { id } }),
+  ]);
 }
 
 module.exports = {

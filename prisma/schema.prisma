@@ -376,6 +376,7 @@ model push_notification_recipients {
   status             String             @default("pending") @db.VarChar(10)
   error              String?
   delivered_at       DateTime?          @db.Timestamp(6)
+  opened_at          DateTime?          @db.Timestamp(6)
 
   @@unique([notification_id, company_id])
 }
