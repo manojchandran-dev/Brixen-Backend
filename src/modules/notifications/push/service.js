@@ -99,8 +99,40 @@ async function find(id) {
   return row;
 }
 
+// Detail view: the list's fields plus how it went for each company.
 async function get(id) {
-  return (await present([await find(id)]))[0];
+  const [notification] = await present([await find(id)]);
+  const rows = await prisma.push_notification_recipients.findMany({
+    where: { notification_id: id },
+    select: {
+      company_id: true,
+      status: true,
+      error: true,
+      delivered_at: true,
+      opened_at: true,
+      companies: { select: { company_name: true } },
+    },
+    orderBy: { company_id: 'asc' },
+  });
+  notification.recipient_details = rows.map(({ companies, ...r }) => ({
+    ...r,
+    company_name: companies?.company_name ?? null,
+  }));
+
+  // selectedCompanies stores only ids; expand them for display. A deleted
+  // company simply drops out of the list.
+  const ids = notification.audience?.company_ids ?? [];
+  if (ids.length) {
+    notification.audience = {
+      ...notification.audience,
+      companies: await prisma.companies.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, company_code: true, company_name: true, owner_name: true, email: true, phone: true, status: true },
+        orderBy: { company_name: 'asc' },
+      }),
+    };
+  }
+  return notification;
 }
 
 // Sends the notification to every registered device of each company and
