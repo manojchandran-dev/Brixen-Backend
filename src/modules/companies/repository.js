@@ -12,6 +12,10 @@ function count(where = {}) {
   return prisma.companies.count({ where });
 }
 
+function findFirst(where) {
+  return prisma.companies.findFirst({ where, select: { id: true } });
+}
+
 function findById(id) {
   return prisma.companies.findUnique({ where: { id } });
 }
@@ -46,6 +50,7 @@ module.exports = {
   create,
   findMany,
   count,
+  findFirst,
   findById,
   update,
   delete: deleteById,

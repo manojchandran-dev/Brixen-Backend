@@ -36,7 +36,9 @@ async function toUserResponse(user) {
   };
 
   if (user.user_type === 'company' && user.company_id) {
-    base.company = await companyRepository.findById(user.company_id);
+    // Drop the plaintext temporary password stored on the company row.
+    const { password, ...company } = (await companyRepository.findById(user.company_id)) || {};
+    base.company = company.id ? company : null;
   }
 
   // user_type 'employee' has no login system yet (employees table has no

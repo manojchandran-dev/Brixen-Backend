@@ -39,8 +39,30 @@ async function recomputeOnboardingStatus(id) {
   return companyRepository.update(id, { onboarding_status });
 }
 
+// Company name and GST number must be unique across companies, compared
+// case-insensitively and ignoring surrounding spaces. `excludeId` skips the
+// company being updated, so saving it unchanged isn't flagged as a duplicate.
+// ponytail: check-then-write, two simultaneous saves can both pass; add a DB
+// unique index on lower(trim(...)) if that ever matters.
+async function assertUniqueNameAndGst(data, excludeId) {
+  const checks = [
+    ['company_name', 'Company name'],
+    ['gst_number', 'GST number'],
+  ];
+  for (const [field, label] of checks) {
+    const value = typeof data[field] === 'string' ? data[field].trim() : '';
+    if (!value) continue;
+    const clash = await companyRepository.findFirst({
+      [field]: { equals: value, mode: 'insensitive' },
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    });
+    if (clash) throw new CompanyError(`${label} "${value}" already exists`, 409);
+  }
+}
+
 async function createCompany(data) {
   const { company_code, onboarding_status, user_type, password, ...rest } = data;
+  await assertUniqueNameAndGst(rest);
 
   for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt += 1) {
     try {
@@ -101,6 +123,7 @@ async function getCompanyById(id) {
 
 async function updateCompany(id, data) {
   const { company_code, onboarding_status, user_type, password, ...rest } = data;
+  await assertUniqueNameAndGst(rest, id);
   await companyRepository.update(id, rest);
   return recomputeOnboardingStatus(id);
 }

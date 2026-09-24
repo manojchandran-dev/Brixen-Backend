@@ -1,9 +1,20 @@
 const companyService = require('./service');
 const { success, error } = require('../../core/responses/apiResponse');
 
+// companies.password holds the plaintext temporary login password (it's
+// emailed on activation) -- never send it back out over the API.
+const hidePassword = ({ password, ...company }) => company;
+
 async function createCompany(req, res) {
-  const company = await companyService.createCompany(req.body);
-  return success(res, company, 201);
+  try {
+    const company = await companyService.createCompany(req.body);
+    return success(res, hidePassword(company), 201);
+  } catch (err) {
+    if (err instanceof companyService.CompanyError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
 }
 
 async function getCompanies(req, res) {
@@ -12,7 +23,7 @@ async function getCompanies(req, res) {
   const search = req.query.search || '';
 
   const result = await companyService.getCompanies({ page, limit, search });
-  return success(res, result);
+  return success(res, { ...result, items: result.items.map(hidePassword) });
 }
 
 async function getCompanyById(req, res) {
@@ -26,7 +37,7 @@ async function getCompanyById(req, res) {
     return error(res, 'Company not found', 404);
   }
 
-  return success(res, company);
+  return success(res, hidePassword(company));
 }
 
 async function updateCompany(req, res) {
@@ -40,8 +51,15 @@ async function updateCompany(req, res) {
     return error(res, 'Company not found', 404);
   }
 
-  const company = await companyService.updateCompany(id, req.body);
-  return success(res, company);
+  try {
+    const company = await companyService.updateCompany(id, req.body);
+    return success(res, hidePassword(company));
+  } catch (err) {
+    if (err instanceof companyService.CompanyError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
 }
 
 async function updateCompanyStep2(req, res) {
@@ -56,7 +74,7 @@ async function updateCompanyStep2(req, res) {
   }
 
   const company = await companyService.updateCompanyStep2(id, req.body);
-  return success(res, company);
+  return success(res, hidePassword(company));
 }
 
 async function updateCompanyStep3(req, res) {
@@ -71,7 +89,7 @@ async function updateCompanyStep3(req, res) {
   }
 
   const company = await companyService.updateCompanyStep3(id, req.body);
-  return success(res, company);
+  return success(res, hidePassword(company));
 }
 
 async function updateCompanyStatus(req, res) {
@@ -82,7 +100,7 @@ async function updateCompanyStatus(req, res) {
 
   try {
     const company = await companyService.updateCompanyStatus(id, req.body.status);
-    return success(res, company);
+    return success(res, hidePassword(company));
   } catch (err) {
     if (err instanceof companyService.CompanyError) {
       return error(res, err.message, err.status);
