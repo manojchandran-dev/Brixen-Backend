@@ -141,4 +141,9 @@ async function addNote(id, text) {
   );
 }
 
-module.exports = { SupportTicketError, createTicket, getTickets, getTicketById, updateStatus, assign, addNote };
+async function deleteTicket(id) {
+  await supportTicketRepository.remove(id);
+  return null;
+}
+
+module.exports = { SupportTicketError, createTicket, getTickets, getTicketById, updateStatus, assign, addNote, deleteTicket };

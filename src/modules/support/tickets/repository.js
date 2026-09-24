@@ -25,4 +25,8 @@ function update(id, data) {
   return prisma.support_tickets.update({ where: { id }, data, include: INCLUDE });
 }
 
-module.exports = { create, findMany, count, findById, update };
+function remove(id) {
+  return prisma.support_tickets.delete({ where: { id } }); // soft delete, see prisma/client.js
+}
+
+module.exports = { create, findMany, count, findById, update, remove };

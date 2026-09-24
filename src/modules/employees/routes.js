@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const asyncHandler = require('../../middleware/asyncHandler');
+const restoreHandler = require('../../utils/restore');
 const employeeController = require('./controller');
 const {
   validateCreateEmployee,
@@ -17,5 +18,6 @@ router.put('/:id', validateUpdateEmployee, asyncHandler(employeeController.updat
 router.put('/:id/step2', validateEmployeeStep2, asyncHandler(employeeController.updateEmployeeStep2));
 router.put('/:id/step3', validateEmployeeStep3, asyncHandler(employeeController.updateEmployeeStep3));
 router.delete('/:id', asyncHandler(employeeController.deleteEmployee));
+router.post('/:id/restore', asyncHandler(restoreHandler('employees', { label: 'employee', intId: true })));
 
 module.exports = router;

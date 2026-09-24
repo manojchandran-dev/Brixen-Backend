@@ -126,6 +126,22 @@ async function deleteCompany(req, res) {
   return res.status(204).send();
 }
 
+async function restoreCompany(req, res) {
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return error(res, 'Invalid company id', 400);
+  }
+
+  try {
+    return success(res, hidePassword(await companyService.restoreCompany(id)));
+  } catch (err) {
+    if (err instanceof companyService.CompanyError) {
+      return error(res, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
 module.exports = {
   createCompany,
   getCompanies,
@@ -135,4 +151,5 @@ module.exports = {
   updateCompanyStep3,
   updateCompanyStatus,
   deleteCompany,
+  restoreCompany,
 };

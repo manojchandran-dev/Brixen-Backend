@@ -52,4 +52,22 @@ async function sendMessage(req, res) {
   }
 }
 
-module.exports = { listConversations, getMessages, sendMessage };
+// Superadmin only (routes gate it). 204 on success, 404 if there's nothing to act on.
+function conversationAction(action) {
+  return async (req, res) => {
+    const company_id = parseCompanyId(req.params.companyId);
+    if (!company_id) return error(res, 'companyId must be a positive integer', 400);
+    try {
+      await action(company_id);
+      return res.status(204).send();
+    } catch (err) {
+      if (err instanceof chatService.ChatError) return error(res, err.message, err.status);
+      throw err;
+    }
+  };
+}
+
+const deleteConversation = conversationAction(chatService.deleteConversation);
+const restoreConversation = conversationAction(chatService.restoreConversation);
+
+module.exports = { listConversations, getMessages, sendMessage, deleteConversation, restoreConversation };

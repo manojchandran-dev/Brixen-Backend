@@ -57,5 +57,6 @@ const updateStatus = (req, res) => superadminAction(req, res, (id, b) => support
 const assign = (req, res) =>
   superadminAction(req, res, (id, b) => supportTicketService.assign(id, b.assigned_to ?? null));
 const addNote = (req, res) => superadminAction(req, res, (id, b) => supportTicketService.addNote(id, b.text));
+const deleteTicket = (req, res) => superadminAction(req, res, (id) => supportTicketService.deleteTicket(id));
 
-module.exports = { createTicket, getTickets, getTicketById, updateStatus, assign, addNote };
+module.exports = { createTicket, getTickets, getTicketById, updateStatus, assign, addNote, deleteTicket };

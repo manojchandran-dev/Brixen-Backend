@@ -27,23 +27,46 @@ function update(id, data) {
   });
 }
 
-// Most company-owned tables are onDelete: Restrict, so their rows go first,
-// children before the rows they reference (sales -> products, expenses ->
-// categories). Tables marked Cascade in the schema clean themselves up.
+// The company's own soft-deletable rows go with it (its login user included,
+// which blocks sign-in), all stamped with the same deleted_at. Restore brings
+// back exactly that set, not rows that were deleted separately before.
+// Sales and expenses aren't soft-deletable and are left untouched.
+const COMPANY_CHILDREN = [
+  'users',
+  'employees',
+  'customers',
+  'products',
+  'product_categories',
+  'company_categories',
+  'expense_categories',
+  'units',
+  'chat_conversations',
+  'support_tickets',
+];
+
 function deleteById(id) {
-  const where = { company_id: id };
+  const deleted_at = new Date();
   return prisma.$transaction([
-    prisma.sales.deleteMany({ where }),
-    prisma.expenses.deleteMany({ where }),
-    prisma.products.deleteMany({ where }),
-    prisma.customers.deleteMany({ where }),
-    prisma.employees.deleteMany({ where }),
-    prisma.expense_categories.deleteMany({ where }),
-    prisma.product_categories.deleteMany({ where }),
-    prisma.units.deleteMany({ where }),
-    prisma.company_categories.deleteMany({ where }),
-    prisma.companies.delete({ where: { id } }),
+    ...COMPANY_CHILDREN.map((m) =>
+      prisma[m].updateMany({ where: { company_id: id, deleted_at: null }, data: { deleted_at } })
+    ),
+    prisma.companies.updateMany({ where: { id, deleted_at: null }, data: { deleted_at } }),
   ]);
+}
+
+// Returns the restored company, or null if there's no deleted company with this id.
+async function restoreById(id) {
+  const company = await prisma.companies.findFirst({ where: { id, deleted_at: { not: null } } });
+  if (!company) return null;
+
+  const { deleted_at } = company;
+  await prisma.$transaction([
+    ...COMPANY_CHILDREN.map((m) =>
+      prisma[m].updateMany({ where: { company_id: id, deleted_at }, data: { deleted_at: null } })
+    ),
+    prisma.companies.updateMany({ where: { id, deleted_at }, data: { deleted_at: null } }),
+  ]);
+  return findById(id);
 }
 
 module.exports = {
@@ -54,4 +77,5 @@ module.exports = {
   findById,
   update,
   delete: deleteById,
+  restore: restoreById,
 };

@@ -248,6 +248,12 @@ async function deleteCompany(id) {
   return companyRepository.delete(id);
 }
 
+async function restoreCompany(id) {
+  const company = await companyRepository.restore(id);
+  if (!company) throw new CompanyError('Deleted company not found', 404);
+  return company;
+}
+
 module.exports = {
   CompanyError,
   createCompany,
@@ -258,4 +264,5 @@ module.exports = {
   updateCompanyStep3,
   updateCompanyStatus,
   deleteCompany,
+  restoreCompany,
 };

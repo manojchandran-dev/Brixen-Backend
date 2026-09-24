@@ -19,5 +19,6 @@ router.put('/:id/step2', validateStep2, asyncHandler(companyController.updateCom
 router.put('/:id/step3', validateStep3, asyncHandler(companyController.updateCompanyStep3));
 router.put('/:id/status', validateUpdateStatus, asyncHandler(companyController.updateCompanyStatus));
 router.delete('/:id', asyncHandler(companyController.deleteCompany));
+router.post('/:id/restore', asyncHandler(companyController.restoreCompany));
 
 module.exports = router;

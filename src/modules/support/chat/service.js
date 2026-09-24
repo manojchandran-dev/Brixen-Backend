@@ -76,9 +76,11 @@ async function sendMessage(company_id, { isSupport, type = 'text', text, attachm
   const company = await prisma.companies.findUnique({ where: { id: company_id } });
   if (!company) throw new ChatError('Company not found', 404);
 
+  // A new message brings a soft-deleted conversation back (history included):
+  // company_id is unique, so there can't be a second, fresh one.
   const conversation = await prisma.chat_conversations.upsert({
     where: { company_id },
-    update: {},
+    update: { deleted_at: null },
     create: { company_id },
   });
 
@@ -97,4 +99,21 @@ async function sendMessage(company_id, { isSupport, type = 'text', text, attachm
   return toMessage(message);
 }
 
-module.exports = { ChatError, listConversations, getMessages, sendMessage };
+// Soft delete / restore, keyed by company like the rest of chat.
+async function deleteConversation(company_id) {
+  const { count } = await prisma.chat_conversations.updateMany({
+    where: { company_id },
+    data: { deleted_at: new Date() },
+  });
+  if (!count) throw new ChatError('Conversation not found', 404);
+}
+
+async function restoreConversation(company_id) {
+  const { count } = await prisma.chat_conversations.updateMany({
+    where: { company_id, deleted_at: { not: null } },
+    data: { deleted_at: null },
+  });
+  if (!count) throw new ChatError('Deleted conversation not found', 404);
+}
+
+module.exports = { ChatError, listConversations, getMessages, sendMessage, deleteConversation, restoreConversation };

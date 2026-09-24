@@ -9,6 +9,7 @@ datasource db {
 
 model companies {
   id                 Int                            @id @default(autoincrement())
+  deleted_at         DateTime?                      @db.Timestamp(6)
   company_code       String                         @unique @db.VarChar(20)
   company_name       String                         @db.VarChar(150)
   owner_name         String?                        @db.VarChar(100)
@@ -54,6 +55,7 @@ model companies {
 
 model users {
   id              Int               @id @default(autoincrement())
+  deleted_at      DateTime?         @db.Timestamp(6)
   company_id      Int?
   companies       companies?        @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   email           String            @unique @db.VarChar(150)
@@ -81,6 +83,7 @@ model password_resets {
 
 model expense_categories {
   id          String     @id @db.VarChar(16)
+  deleted_at  DateTime?  @db.Timestamp(6)
   company_id  Int
   companies   companies  @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   name        String     @db.VarChar(150)
@@ -111,6 +114,7 @@ model expenses {
 
 model company_categories {
   id          String    @id @db.VarChar(16)
+  deleted_at  DateTime? @db.Timestamp(6)
   company_id  Int
   companies   companies @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   name        String    @db.VarChar(150)
@@ -122,6 +126,7 @@ model company_categories {
 
 model product_categories {
   id          String     @id @db.VarChar(16)
+  deleted_at  DateTime?  @db.Timestamp(6)
   company_id  Int
   companies   companies  @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   name        String     @db.VarChar(150)
@@ -134,6 +139,7 @@ model product_categories {
 
 model units {
   id          String     @id @db.VarChar(16)
+  deleted_at  DateTime?  @db.Timestamp(6)
   company_id  Int
   companies   companies  @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   unit        String     @db.VarChar(20)
@@ -149,6 +155,7 @@ model units {
 
 model products {
   id                 String              @id @db.VarChar(16)
+  deleted_at         DateTime?           @db.Timestamp(6)
   company_id         Int
   companies          companies           @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   product_name       String              @db.VarChar(200)
@@ -173,6 +180,7 @@ model products {
 
 model employees {
   id                      Int         @id @default(autoincrement())
+  deleted_at              DateTime?   @db.Timestamp(6)
   company_id              Int
   companies               companies   @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   employee_code           String?     @db.VarChar(20)
@@ -208,6 +216,7 @@ model employees {
 
 model customers {
   id         String    @id @db.VarChar(16)
+  deleted_at DateTime? @db.Timestamp(6)
   company_id Int
   companies  companies @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   name       String    @db.VarChar(150)
@@ -289,6 +298,7 @@ model permissions {
 
 model support_tickets {
   id          String                    @id @db.VarChar(16)
+  deleted_at  DateTime?                 @db.Timestamp(6)
   company_id  Int
   companies   companies                 @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   subject     String                    @db.VarChar(200)
@@ -315,6 +325,7 @@ model support_ticket_messages {
 
 model chat_conversations {
   id         Int             @id @default(autoincrement())
+  deleted_at DateTime?       @db.Timestamp(6)
   company_id Int             @unique
   companies  companies       @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   created_at DateTime        @default(now()) @db.Timestamp(6)
@@ -393,6 +404,7 @@ model device_tokens {
 
 model announcements {
   id                  String               @id @db.VarChar(16)
+  deleted_at          DateTime?            @db.Timestamp(6)
   title               String               @db.VarChar(200)
   short_description   String?
   content             String               @default("")
