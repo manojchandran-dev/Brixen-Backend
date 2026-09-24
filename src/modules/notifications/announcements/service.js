@@ -74,12 +74,14 @@ async function get(id) {
   return present(await find(id));
 }
 
-async function list({ status, search, page, limit }) {
+async function list({ status, search, page, limit, deleted }) {
   if (status) assertOneOf('status', status, STATUSES);
   const take = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
   const pageNo = Math.max(parseInt(page, 10) || 1, 1);
 
   const where = {
+    // deleted=true lists the soft-deleted rows instead (to restore them).
+    ...(deleted === 'true' ? { deleted_at: { not: null } } : {}),
     ...(status ? { status } : {}),
     ...(search
       ? {

@@ -90,20 +90,24 @@ async function createCompany(data) {
   throw new Error('Failed to generate a unique company code, please retry');
 }
 
-async function getCompanies({ page = 1, limit = 20, search = '' }) {
+// `deleted: true` lists the soft-deleted companies instead (to restore them).
+async function getCompanies({ page = 1, limit = 20, search = '', deleted = false }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
-  const where = search
-    ? {
-        OR: [
-          { company_name: { contains: search, mode: 'insensitive' } },
-          { company_code: { contains: search, mode: 'insensitive' } },
-          { address: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
-        ],
-      }
-    : {};
+  const where = {
+    ...(deleted ? { deleted_at: { not: null } } : {}),
+    ...(search
+      ? {
+          OR: [
+            { company_name: { contains: search, mode: 'insensitive' } },
+            { company_code: { contains: search, mode: 'insensitive' } },
+            { address: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
 
   const [data, total] = await Promise.all([
     companyRepository.findMany({ where, skip, take, orderBy: { created_at: 'desc' } }),

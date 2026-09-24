@@ -50,12 +50,14 @@ async function createUnit(company_id, data) {
   throw new Error('Failed to generate a unique unit id, please retry');
 }
 
-async function getUnits(company_id, { page = 1, limit = 20, search = '' }) {
+async function getUnits(company_id, { page = 1, deleted = false, limit = 20, search = '' }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
     ...(company_id ? { company_id } : {}),
+    // deleted=true lists the soft-deleted rows instead (to restore them).
+    ...(deleted ? { deleted_at: { not: null } } : {}),
     ...(search
       ? {
           OR: [

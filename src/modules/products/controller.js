@@ -35,7 +35,7 @@ async function getProducts(req, res) {
   const category_id = req.query.category_id || undefined;
   const status = req.query.status || undefined;
 
-  const result = await productService.getProducts(company_id, { page, limit, search, category_id, status });
+  const result = await productService.getProducts(company_id, { page, limit, deleted: req.query.deleted === 'true', search, category_id, status });
   return success(res, result);
 }
 

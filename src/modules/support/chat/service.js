@@ -21,8 +21,10 @@ const toMessage = (m) => ({
   sent_at: m.sent_at,
 });
 
-async function listConversations() {
+// `deleted: true` lists soft-deleted conversations instead (to restore them).
+async function listConversations({ deleted = false } = {}) {
   const rows = await prisma.chat_conversations.findMany({
+    ...(deleted ? { where: { deleted_at: { not: null } } } : {}),
     include: {
       companies: { select: { company_name: true } },
       messages: { orderBy: { id: 'desc' }, take: 1 },

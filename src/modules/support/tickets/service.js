@@ -85,7 +85,7 @@ async function createTicket(company_id, data) {
   return toTicket(ticket);
 }
 
-async function getTickets(company_id, { page = 1, limit = 20, status, search = '' }) {
+async function getTickets(company_id, { page = 1, deleted = false, limit = 20, status, search = '' }) {
   if (status !== undefined) assertOneOf('status', status, STATUSES);
 
   const take = Math.min(Math.max(limit, 1), 100);
@@ -93,6 +93,8 @@ async function getTickets(company_id, { page = 1, limit = 20, status, search = '
 
   const where = {
     ...(company_id ? { company_id } : {}),
+    // deleted=true lists the soft-deleted rows instead (to restore them).
+    ...(deleted ? { deleted_at: { not: null } } : {}),
     ...(status ? { status } : {}),
     ...(search
       ? {

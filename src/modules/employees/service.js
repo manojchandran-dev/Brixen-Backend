@@ -72,12 +72,14 @@ async function createEmployee(company_id, data) {
   return employeeRepository.update(employee.id, { employee_code: generatedCode });
 }
 
-async function getEmployees(company_id, { page = 1, limit = 20, search = '' }) {
+async function getEmployees(company_id, { page = 1, deleted = false, limit = 20, search = '' }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
     ...(company_id ? { company_id } : {}),
+    // deleted=true lists the soft-deleted rows instead (to restore them).
+    ...(deleted ? { deleted_at: { not: null } } : {}),
     ...(search
       ? {
           OR: [

@@ -39,7 +39,7 @@ async function getTickets(req, res) {
   const limit = parseInt(req.query.limit, 10) || 20;
   const { status, search } = req.query;
 
-  return run(res, () => supportTicketService.getTickets(company_id, { page, limit, status, search }));
+  return run(res, () => supportTicketService.getTickets(company_id, { page, limit, deleted: req.query.deleted === 'true', status, search }));
 }
 
 async function getTicketById(req, res) {

@@ -33,7 +33,7 @@ async function getProductCategories(req, res) {
   const limit = parseInt(req.query.limit, 10) || 20;
   const search = req.query.search || '';
 
-  const result = await productCategoryService.getProductCategories(company_id, { page, limit, search });
+  const result = await productCategoryService.getProductCategories(company_id, { page, limit, deleted: req.query.deleted === 'true', search });
   return success(res, result);
 }
 

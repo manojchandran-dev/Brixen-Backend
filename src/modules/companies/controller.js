@@ -22,7 +22,9 @@ async function getCompanies(req, res) {
   const limit = parseInt(req.query.limit, 10) || 20;
   const search = req.query.search || '';
 
-  const result = await companyService.getCompanies({ page, limit, search });
+  const deleted = req.query.deleted === 'true';
+
+  const result = await companyService.getCompanies({ page, limit, search, deleted });
   return success(res, { ...result, items: result.items.map(hidePassword) });
 }
 

@@ -6,7 +6,7 @@ const isSuperadmin = (req) => req.query.user_type === 'superadmin';
 
 async function listConversations(req, res) {
   if (!isSuperadmin(req)) return error(res, 'Only superadmin can list conversations', 403);
-  return success(res, await chatService.listConversations());
+  return success(res, await chatService.listConversations({ deleted: req.query.deleted === 'true' }));
 }
 
 // A company may only touch its own conversation; superadmin may touch any.

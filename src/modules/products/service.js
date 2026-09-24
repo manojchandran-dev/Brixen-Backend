@@ -93,12 +93,14 @@ async function createProduct(company_id, data) {
   throw new Error('Failed to generate a unique product id, please retry');
 }
 
-async function getProducts(company_id, { page = 1, limit = 20, search = '', category_id, status }) {
+async function getProducts(company_id, { page = 1, deleted = false, limit = 20, search = '', category_id, status }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
     ...(company_id ? { company_id } : {}),
+    // deleted=true lists the soft-deleted rows instead (to restore them).
+    ...(deleted ? { deleted_at: { not: null } } : {}),
     ...(category_id ? { category_id } : {}),
     ...(status ? { status } : {}),
     ...(search
