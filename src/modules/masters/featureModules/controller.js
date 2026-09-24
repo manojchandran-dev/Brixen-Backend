@@ -6,6 +6,11 @@ const { parseCompanyId } = require('../../../utils/companyScope');
 async function getModules(req, res) {
   const { user_type } = req.query;
 
+  // The modules a superadmin can give a company (Permissions screen).
+  if (req.query.for === 'permissions') {
+    return success(res, await moduleService.getGrantableModules());
+  }
+
   if (user_type === 'superadmin') {
     const modules = await moduleService.getModules();
     return success(res, modules);

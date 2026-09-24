@@ -275,6 +275,9 @@ model modules {
   children              modules[]     @relation("ModuleParent")
   visible_to_superadmin Boolean       @default(true)
   always_visible        Boolean       @default(false)
+  // false = superadmin-only (Companies, Permissions, Company Category): never
+  // offered on the company Permissions screen.
+  grantable             Boolean       @default(true)
   created_at            DateTime?     @default(now()) @db.Timestamp(6)
   updated_at            DateTime?     @default(now()) @db.Timestamp(6)
   permissions           permissions[]

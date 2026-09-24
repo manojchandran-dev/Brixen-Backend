@@ -16,11 +16,14 @@ function buildTree(modules) {
   return roots;
 }
 
-function filterTree(tree, grantedModuleIds) {
+// always_visible modules (Support, Chatbot) show unless the superadmin has
+// explicitly switched them off for this company.
+function filterTree(tree, grantedModuleIds, deniedModuleIds) {
   return tree
     .map((node) => {
-      const children = filterTree(node.children, grantedModuleIds);
-      const selfGranted = node.always_visible || grantedModuleIds.has(node.id);
+      const children = filterTree(node.children, grantedModuleIds, deniedModuleIds);
+      const selfGranted =
+        grantedModuleIds.has(node.id) || (node.always_visible && !deniedModuleIds.has(node.id));
       if (!selfGranted && children.length === 0) {
         return null;
       }
@@ -50,12 +53,33 @@ async function getModules() {
 async function getAccessibleModules(company_id) {
   const [modules, permissions] = await Promise.all([
     moduleRepository.findMany({ orderBy: { created_at: 'asc' } }),
-    permissionRepository.findMany({ where: { company_id, view: true } }),
+    permissionRepository.findMany({ where: { company_id } }),
   ]);
 
-  const grantedModuleIds = new Set(permissions.map((p) => p.module_id));
-  const tree = buildTree(modules);
-  return filterTree(tree, grantedModuleIds);
+  const grantedModuleIds = new Set(permissions.filter((p) => p.view).map((p) => p.module_id));
+  const deniedModuleIds = new Set(permissions.filter((p) => !p.view).map((p) => p.module_id));
+  // Superadmin-only modules never reach a company, whatever old permission
+  // rows say.
+  const tree = buildTree(modules.filter((m) => m.grantable));
+  return filterTree(tree, grantedModuleIds, deniedModuleIds);
 }
 
-module.exports = { getModules, getAccessibleModules };
+// What a superadmin can grant a company, for the Permissions screen: every
+// module except the superadmin-only ones (grantable = false). A group
+// (Masters) keeps only its grantable children.
+function filterGrantableTree(tree) {
+  return tree
+    .filter((node) => node.grantable)
+    .map((node) => {
+      const children = filterGrantableTree(node.children);
+      return node.children.length && !children.length ? null : { ...node, children };
+    })
+    .filter(Boolean);
+}
+
+async function getGrantableModules() {
+  const modules = await moduleRepository.findMany({ orderBy: { created_at: 'asc' } });
+  return filterGrantableTree(buildTree(modules));
+}
+
+module.exports = { getModules, getAccessibleModules, getGrantableModules };

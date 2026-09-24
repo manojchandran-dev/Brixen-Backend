@@ -6,11 +6,11 @@ const { generateUnitId } = require('../src/utils/unitId');
 const { generateModuleId } = require('../src/utils/moduleId');
 
 const DEFAULT_MODULES = [
-  { name: 'Companies', description: 'All companies' },
+  { name: 'Companies', description: 'All companies', grantable: false },
   { name: 'Notifications', description: 'System & ticket alerts' },
   { name: 'Support Ticket', description: 'Company support requests', always_visible: true },
   { name: 'Chatbot', description: 'Live support chat', always_visible: true },
-  { name: 'Permissions', description: 'Access control' },
+  { name: 'Permissions', description: 'Access control', grantable: false },
   { name: 'Employees', description: 'Manage staff', visible_to_superadmin: false },
   { name: 'Sales', description: 'Invoices', visible_to_superadmin: false },
   { name: 'Customers', description: 'Customer records', visible_to_superadmin: false },
@@ -20,7 +20,7 @@ const DEFAULT_MODULES = [
     name: 'Masters',
     description: 'Categories & units',
     children: [
-      { name: 'Company Category', description: 'Company types' },
+      { name: 'Company Category', description: 'Company types', grantable: false },
       { name: 'Expense Category', description: 'Spending types', visible_to_superadmin: false },
       { name: 'Units', description: 'Measurement units', visible_to_superadmin: false },
       { name: 'Product Category', description: 'Garments categories', visible_to_superadmin: false },
@@ -137,6 +137,7 @@ async function seedUnits(company_id) {
 const flagsOf = (m) => ({
   visible_to_superadmin: m.visible_to_superadmin ?? true,
   always_visible: m.always_visible ?? false,
+  grantable: m.grantable ?? true,
 });
 
 async function syncFlags(existing, def) {
