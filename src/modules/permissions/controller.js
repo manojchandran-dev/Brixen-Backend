@@ -110,7 +110,25 @@ async function deletePermission(req, res) {
   return res.status(204).send();
 }
 
+// Superadmin Permissions screen: companies + access summary, with the same
+// query params as GET /companies (search, status, subscription_plan,
+// industry_type, deleted, page, limit).
+async function getCompanyAccessList(req, res) {
+  const { search = '', status, subscription_plan, industry_type } = req.query;
+  const result = await permissionService.getCompanyAccessList({
+    page: parseInt(req.query.page, 10) || 1,
+    limit: parseInt(req.query.limit, 10) || 20,
+    search,
+    deleted: req.query.deleted === 'true',
+    status,
+    subscription_plan,
+    industry_type,
+  });
+  return success(res, result);
+}
+
 module.exports = {
+  getCompanyAccessList,
   createPermission,
   createPermissionsBulk,
   getPermissions,

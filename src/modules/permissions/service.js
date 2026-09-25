@@ -141,7 +141,42 @@ async function deletePermission(id) {
   return permissionRepository.delete(id);
 }
 
+// How a company's saved row (or its absence) for one module reads on the
+// Permissions screen. Same rules the backend enforces: no row = no access,
+// except always_visible modules (Support Ticket, Chatbot).
+function accessLevel(row, module) {
+  if (!row) return module.always_visible ? 'full' : 'none';
+  if (!row.view) return 'none';
+  return row.create && row.edit && row.delete ? 'full' : 'custom';
+}
+
+// Permissions screen list: the company list (same search, filters, paging and
+// filter-chip counts as GET /companies) with each company's access summary
+// over the grantable modules -- one request instead of one per company.
+async function getCompanyAccessList(filters) {
+  const companyService = require('../companies/service');
+  const result = await companyService.getCompanies(filters);
+  const ids = result.items.map((c) => c.id);
+
+  const [modules, rows] = await Promise.all([
+    moduleRepository.findMany({ where: { grantable: true } }),
+    ids.length ? permissionRepository.findMany({ where: { company_id: { in: ids } } }) : [],
+  ]);
+  // Only the modules that get a row on the screen: a group (Masters) isn't one, its children are.
+  const parentIds = new Set(modules.map((m) => m.parent_id).filter(Boolean));
+  const leaves = modules.filter((m) => !parentIds.has(m.id));
+  const rowFor = new Map(rows.map((r) => [`${r.company_id}:${r.module_id}`, r]));
+
+  const items = result.items.map(({ password, ...company }) => {
+    const access = { full: 0, custom: 0, none: 0, total: leaves.length };
+    for (const m of leaves) access[accessLevel(rowFor.get(`${company.id}:${m.id}`), m)] += 1;
+    return { ...company, access };
+  });
+  return { ...result, items };
+}
+
 module.exports = {
+  getCompanyAccessList,
   PermissionError,
   createPermission,
   createPermissionsBulk,
