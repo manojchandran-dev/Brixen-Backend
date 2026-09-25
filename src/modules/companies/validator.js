@@ -14,7 +14,13 @@ const OPTIONAL_STRING_FIELDS = [
   'employee_count',
   'secondary_email',
   'website',
+  'country',
+  'company_category_id',
+  'company_category_name',
+  'logo_url',
 ];
+
+const MAX_GALLERY_URLS = 3;
 
 function validateOptionalStrings(body, errors, fields = OPTIONAL_STRING_FIELDS) {
   for (const field of fields) {
@@ -24,17 +30,21 @@ function validateOptionalStrings(body, errors, fields = OPTIONAL_STRING_FIELDS) 
   }
 }
 
+function validateGalleryUrls(body, errors) {
+  const urls = body.gallery_urls;
+  if (urls === undefined) return;
+  if (!Array.isArray(urls) || urls.length > MAX_GALLERY_URLS || urls.some((u) => typeof u !== 'string' || !u.trim())) {
+    errors.push(`gallery_urls must be an array of at most ${MAX_GALLERY_URLS} URL strings`);
+  }
+}
+
 // Step 1 — Identity
 function validateCreateCompany(req, res, next) {
-  const { company_name, entity_type, founded_year } = req.body;
+  const { company_name, founded_year } = req.body;
   const errors = [];
 
   if (!company_name || typeof company_name !== 'string' || !company_name.trim()) {
     errors.push('company_name is required and must be a non-empty string');
-  }
-
-  if (!entity_type || typeof entity_type !== 'string' || !entity_type.trim()) {
-    errors.push('entity_type is required and must be a non-empty string');
   }
 
   if (founded_year !== undefined && founded_year !== null && !Number.isInteger(founded_year)) {
@@ -42,6 +52,7 @@ function validateCreateCompany(req, res, next) {
   }
 
   validateOptionalStrings(req.body, errors);
+  validateGalleryUrls(req.body, errors);
 
   if (errors.length) {
     return res.status(400).json({ success: false, errors });
@@ -63,6 +74,7 @@ function validateUpdateCompany(req, res, next) {
   }
 
   validateOptionalStrings(req.body, errors);
+  validateGalleryUrls(req.body, errors);
 
   if (errors.length) {
     return res.status(400).json({ success: false, errors });

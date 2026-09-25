@@ -66,7 +66,7 @@ async function createTicket(company_id, data) {
     raised_by,
     messages: {
       create: [
-        { id: generateTicketMessageId(), sender_name: raised_by, is_support_reply: false, text: data.description },
+        { id: generateTicketMessageId(), company_id, sender_name: raised_by, is_support_reply: false, text: data.description },
       ],
     },
   });
@@ -134,10 +134,11 @@ async function assign(id, assigned_to) {
 
 async function addNote(id, text) {
   assertText('text', text);
+  const { company_id } = await supportTicketRepository.findById(id);
   return toTicket(
     await supportTicketRepository.update(id, {
       messages: {
-        create: { id: generateTicketMessageId(), sender_name: 'Support', is_support_reply: true, text },
+        create: { id: generateTicketMessageId(), company_id, sender_name: 'Support', is_support_reply: true, text },
       },
     })
   );

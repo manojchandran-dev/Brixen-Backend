@@ -89,6 +89,7 @@ async function sendMessage(company_id, { isSupport, type = 'text', text, attachm
   const message = await prisma.chat_messages.create({
     data: {
       conversation_id: conversation.id,
+      company_id,
       sender_name: isSupport ? 'Support' : company.company_name,
       is_support: isSupport,
       type,

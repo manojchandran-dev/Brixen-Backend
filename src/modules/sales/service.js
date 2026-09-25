@@ -172,6 +172,7 @@ async function updateSaleStep2(id, company_id, data) {
     preparedItems.push({
       id: generateSaleItemId(),
       sale_id: id,
+      company_id,
       product_id: item.product_id,
       product_name: item.product_name,
       price_type: item.price_type,

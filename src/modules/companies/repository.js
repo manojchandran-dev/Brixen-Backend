@@ -8,6 +8,10 @@ function findMany(params) {
   return prisma.companies.findMany(params);
 }
 
+function groupBy(params) {
+  return prisma.companies.groupBy(params);
+}
+
 function count(where = {}) {
   return prisma.companies.count({ where });
 }
@@ -73,6 +77,7 @@ module.exports = {
   create,
   findMany,
   count,
+  groupBy,
   findFirst,
   findById,
   update,

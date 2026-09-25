@@ -8,49 +8,57 @@ datasource db {
 }
 
 model companies {
-  id                 Int                            @id @default(autoincrement())
-  deleted_at         DateTime?                      @db.Timestamp(6)
-  company_code       String                         @unique @db.VarChar(20)
-  company_name       String                         @db.VarChar(150)
-  owner_name         String?                        @db.VarChar(100)
-  phone              String?                        @db.VarChar(20)
-  email              String?                        @db.VarChar(100)
-  gst_number         String?                        @db.VarChar(20)
-  address            String?
-  city               String?                        @db.VarChar(50)
-  state              String?                        @db.VarChar(50)
-  pincode            String?                        @db.VarChar(10)
-  industry_type      String?                        @db.VarChar(50)
-  subscription_plan  String?                        @default("FREE") @db.VarChar(30)
-  status             String?                        @default("INACTIVE") @db.VarChar(20)
-  user_type          String?                        @default("company") @db.VarChar(20)
-  password           String?                        @db.VarChar(20)
-  entity_type        String?                        @db.VarChar(50)
-  pan_card           String?                        @db.VarChar(10)
-  employee_count     String?                        @db.VarChar(20)
-  founded_year       Int?
-  secondary_email    String?                        @db.VarChar(100)
-  website            String?                        @db.VarChar(150)
-  onboarding_status  String?                        @default("pending") @db.VarChar(20)
-  created_at         DateTime?                      @default(now()) @db.Timestamp(6)
-  updated_at         DateTime?                      @default(now()) @db.Timestamp(6)
-  expense_categories expense_categories[]
-  expenses           expenses[]
-  company_categories company_categories[]
-  product_categories product_categories[]
-  units              units[]
-  products           products[]
-  employees          employees[]
-  customers          customers[]
-  sales              sales[]
-  permissions        permissions[]
-  users              users[]
-  support_tickets    support_tickets[]
-  notifications      notifications[]
-  chat_conversation  chat_conversations?
-  push_recipients    push_notification_recipients[]
-  announcement_views announcement_views[]
-  device_tokens      device_tokens[]
+  id                      Int                            @id @default(autoincrement())
+  deleted_at              DateTime?                      @db.Timestamp(6)
+  company_code            String                         @unique @db.VarChar(20)
+  company_name            String                         @db.VarChar(150)
+  owner_name              String?                        @db.VarChar(100)
+  phone                   String?                        @db.VarChar(20)
+  email                   String?                        @db.VarChar(100)
+  gst_number              String?                        @db.VarChar(20)
+  address                 String?
+  city                    String?                        @db.VarChar(50)
+  state                   String?                        @db.VarChar(50)
+  pincode                 String?                        @db.VarChar(10)
+  industry_type           String?                        @db.VarChar(50)
+  subscription_plan       String?                        @default("FREE") @db.VarChar(30)
+  status                  String?                        @default("INACTIVE") @db.VarChar(20)
+  user_type               String?                        @default("company") @db.VarChar(20)
+  password                String?                        @db.VarChar(20)
+  entity_type             String?                        @db.VarChar(50)
+  pan_card                String?                        @db.VarChar(10)
+  employee_count          String?                        @db.VarChar(20)
+  founded_year            Int?
+  secondary_email         String?                        @db.VarChar(100)
+  website                 String?                        @db.VarChar(150)
+  country                 String?                        @db.VarChar(60)
+  company_category_id     String?                        @db.VarChar(30)
+  company_category_name   String?                        @db.VarChar(100)
+  logo_url                String?
+  gallery_urls            String[]                       @default([])
+  onboarding_status       String?                        @default("pending") @db.VarChar(20)
+  created_at              DateTime?                      @default(now()) @db.Timestamp(6)
+  updated_at              DateTime?                      @default(now()) @db.Timestamp(6)
+  expense_categories      expense_categories[]
+  expenses                expenses[]
+  company_categories      company_categories[]
+  product_categories      product_categories[]
+  units                   units[]
+  products                products[]
+  employees               employees[]
+  customers               customers[]
+  sales                   sales[]
+  permissions             permissions[]
+  users                   users[]
+  support_tickets         support_tickets[]
+  notifications           notifications[]
+  chat_conversation       chat_conversations?
+  push_recipients         push_notification_recipients[]
+  announcement_views      announcement_views[]
+  device_tokens           device_tokens[]
+  sale_items              sale_items[]
+  support_ticket_messages support_ticket_messages[]
+  chat_messages           chat_messages[]
 }
 
 model users {
@@ -252,18 +260,22 @@ model sales {
 }
 
 model sale_items {
-  id           String    @id @db.VarChar(16)
+  id           String     @id @db.VarChar(16)
   sale_id      String
-  sales        sales     @relation(fields: [sale_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sales        sales      @relation(fields: [sale_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_id   Int?
+  companies    companies? @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   product_id   String
-  products     products  @relation(fields: [product_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  product_name String    @db.VarChar(200)
-  price_type   String    @db.VarChar(20)
-  price        Decimal   @db.Decimal(12, 2)
+  products     products   @relation(fields: [product_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  product_name String     @db.VarChar(200)
+  price_type   String     @db.VarChar(20)
+  price        Decimal    @db.Decimal(12, 2)
   quantity     Int
-  line_total   Decimal   @db.Decimal(12, 2)
-  created_at   DateTime? @default(now()) @db.Timestamp(6)
-  updated_at   DateTime? @default(now()) @db.Timestamp(6)
+  line_total   Decimal    @db.Decimal(12, 2)
+  created_at   DateTime?  @default(now()) @db.Timestamp(6)
+  updated_at   DateTime?  @default(now()) @db.Timestamp(6)
+
+  @@index([company_id])
 }
 
 model modules {
@@ -320,10 +332,14 @@ model support_ticket_messages {
   id               String          @id @db.VarChar(16)
   ticket_id        String
   support_tickets  support_tickets @relation(fields: [ticket_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_id       Int?
+  companies        companies?      @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   sender_name      String          @db.VarChar(150)
   is_support_reply Boolean         @default(false)
   text             String
   sent_at          DateTime        @default(now()) @db.Timestamp(6)
+
+  @@index([company_id])
 }
 
 model chat_conversations {
@@ -339,6 +355,8 @@ model chat_messages {
   id                 Int                @id @default(autoincrement())
   conversation_id    Int
   chat_conversations chat_conversations @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_id         Int?
+  companies          companies?         @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   sender_name        String             @db.VarChar(150)
   is_support         Boolean            @default(false)
   type               String             @default("text") @db.VarChar(10)
@@ -348,6 +366,7 @@ model chat_messages {
   sent_at            DateTime           @default(now()) @db.Timestamp(6)
 
   @@index([conversation_id, id])
+  @@index([company_id])
 }
 
 model notifications {

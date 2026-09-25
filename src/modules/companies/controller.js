@@ -24,7 +24,9 @@ async function getCompanies(req, res) {
 
   const deleted = req.query.deleted === 'true';
 
-  const result = await companyService.getCompanies({ page, limit, search, deleted });
+  const { status, subscription_plan, industry_type } = req.query;
+
+  const result = await companyService.getCompanies({ page, limit, search, deleted, status, subscription_plan, industry_type });
   return success(res, { ...result, items: result.items.map(hidePassword) });
 }
 
