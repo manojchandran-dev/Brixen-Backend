@@ -85,35 +85,57 @@ async function createTicket(company_id, data) {
   return toTicket(ticket);
 }
 
-async function getTickets(company_id, { page = 1, deleted = false, limit = 20, status, search = '' }) {
+// Counts per value of a column, e.g. { open: 2, resolved: 1 }, for the filter chips.
+async function countBy(field, where) {
+  const rows = await supportTicketRepository.groupBy({ by: [field], where, _count: { _all: true } });
+  return Object.fromEntries(rows.map((r) => [r[field], r._count._all]));
+}
+
+// `status`, `priority` and `category` filter exactly; `search` matches the
+// subject, description, company name and who raised it. `filters` gives the
+// chip counts for the current search, before the chip filters.
+async function getTickets(company_id, { page = 1, deleted = false, limit = 20, status, priority, category, search = '' }) {
   if (status !== undefined) assertOneOf('status', status, STATUSES);
+  if (priority !== undefined) assertOneOf('priority', priority, PRIORITIES);
+  if (category !== undefined) assertOneOf('category', category, CATEGORIES);
 
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
-  const where = {
+  const base = {
     ...(company_id ? { company_id } : {}),
     // deleted=true lists the soft-deleted rows instead (to restore them).
     ...(deleted ? { deleted_at: { not: null } } : {}),
-    ...(status ? { status } : {}),
     ...(search
       ? {
           OR: [
             { subject: { contains: search, mode: 'insensitive' } },
             { description: { contains: search, mode: 'insensitive' } },
+            { raised_by: { contains: search, mode: 'insensitive' } },
+            { companies: { company_name: { contains: search, mode: 'insensitive' } } },
           ],
         }
       : {}),
   };
+  const where = {
+    ...base,
+    ...(status ? { status } : {}),
+    ...(priority ? { priority } : {}),
+    ...(category ? { category } : {}),
+  };
 
-  const [data, total] = await Promise.all([
+  const [data, total, statusCounts, priorityCounts, categoryCounts] = await Promise.all([
     supportTicketRepository.findMany({ where, skip, take, orderBy: { updated_at: 'desc' } }),
     supportTicketRepository.count(where),
+    countBy('status', base),
+    countBy('priority', base),
+    countBy('category', base),
   ]);
 
   return {
     items: data.map(toTicket),
     meta: { page, limit: take, total, pages: Math.ceil(total / take) },
+    filters: { status: statusCounts, priority: priorityCounts, category: categoryCounts },
   };
 }
 

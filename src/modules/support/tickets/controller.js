@@ -37,9 +37,9 @@ async function getTickets(req, res) {
 
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 20;
-  const { status, search } = req.query;
+  const { status, priority, category, search } = req.query;
 
-  return run(res, () => supportTicketService.getTickets(company_id, { page, limit, deleted: req.query.deleted === 'true', status, search }));
+  return run(res, () => supportTicketService.getTickets(company_id, { page, limit, deleted: req.query.deleted === 'true', status, priority, category, search }));
 }
 
 async function getTicketById(req, res) {

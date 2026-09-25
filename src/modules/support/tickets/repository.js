@@ -29,4 +29,8 @@ function remove(id) {
   return prisma.support_tickets.delete({ where: { id } }); // soft delete, see prisma/client.js
 }
 
-module.exports = { create, findMany, count, findById, update, remove };
+function groupBy(params) {
+  return prisma.support_tickets.groupBy(params);
+}
+
+module.exports = { create, findMany, count, groupBy, findById, update, remove };

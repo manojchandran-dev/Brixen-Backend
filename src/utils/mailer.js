@@ -1,6 +1,12 @@
 const { Resend } = require('resend');
 const { RESEND_API_KEY, RESEND_FROM_EMAIL } = require('../config');
-const { buildOtpEmail, buildWelcomeEmail, buildDeactivatedEmail } = require('./emailTemplates');
+const fs = require('fs');
+const path = require('path');
+const { buildOtpEmail, buildWelcomeEmail, buildDeactivatedEmail, BRIXEN_ICON_CID } = require('./emailTemplates');
+
+// The app icon, embedded in the email itself (inline attachment) rather than
+// linked, so it shows even when the server is asleep or images are proxied.
+const BRIXEN_ICON = fs.readFileSync(path.join(__dirname, '../assets/brixen-icon.png'));
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
@@ -41,6 +47,7 @@ async function sendWelcomeEmail(to, email, tempPassword) {
     subject: 'Welcome to Brixen — your account is activated',
     html,
     text,
+    attachments: [{ filename: 'brixen-icon.png', content: BRIXEN_ICON, contentId: BRIXEN_ICON_CID }],
   });
 }
 
