@@ -41,7 +41,6 @@ const COMPANY_CHILDREN = [
   'customers',
   'products',
   'product_categories',
-  'company_categories',
   'expense_categories',
   'units',
   'chat_conversations',

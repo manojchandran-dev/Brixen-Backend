@@ -11,6 +11,6 @@ router.get('/', asyncHandler(companyCategoryController.getCompanyCategories));
 router.get('/:id', asyncHandler(companyCategoryController.getCompanyCategoryById));
 router.put('/:id', validateUpdateCompanyCategory, asyncHandler(companyCategoryController.updateCompanyCategory));
 router.delete('/:id', asyncHandler(companyCategoryController.deleteCompanyCategory));
-router.post('/:id/restore', asyncHandler(restoreHandler('company_categories', { label: 'company category' })));
+router.post('/:id/restore', asyncHandler(restoreHandler('company_categories', { label: 'company category', scoped: false })));
 
 module.exports = router;

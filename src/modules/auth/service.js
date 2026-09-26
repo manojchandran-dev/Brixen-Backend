@@ -8,7 +8,7 @@ const {
 } = require('./repository');
 const companyRepository = require('../companies/repository');
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../../utils/jwt');
-const { sendOtpEmail } = require('../../utils/mailer');
+const { sendOtpEmail, sendPinResetOtpEmail } = require('../../utils/mailer');
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const RESET_TOKEN_TTL_MS = 10 * 60 * 1000;
@@ -139,7 +139,9 @@ async function setPin(userId, pin, currentPin) {
   await userRepository.update(userId, { pin_hash });
 }
 
-async function verifyPin(refreshToken, pin) {
+// The lock screen identifies the user by their refresh token (the access
+// token may have expired). 401 when it's invalid, expired or revoked.
+async function userFromRefreshToken(refreshToken) {
   let payload;
   try {
     payload = verifyRefreshToken(refreshToken);
@@ -147,8 +149,7 @@ async function verifyPin(refreshToken, pin) {
     throw new AuthError('Invalid or expired refresh token');
   }
 
-  const tokenHash = hashToken(refreshToken);
-  const stored = await refreshTokenRepository.findValidByHash(tokenHash);
+  const stored = await refreshTokenRepository.findValidByHash(hashToken(refreshToken));
   if (!stored) {
     throw new AuthError('Invalid or expired refresh token');
   }
@@ -157,6 +158,11 @@ async function verifyPin(refreshToken, pin) {
   if (!user) {
     throw new AuthError('Invalid or expired refresh token');
   }
+  return { user, stored };
+}
+
+async function verifyPin(refreshToken, pin) {
+  const { user, stored } = await userFromRefreshToken(refreshToken);
 
   if (!user.pin_hash) {
     throw new AuthError('PIN is not set for this user', 400);
@@ -175,8 +181,93 @@ async function verifyPin(refreshToken, pin) {
   };
 }
 
+// Cryptographically random 6-digit code.
 function generateOtp() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+// ---------- Forgot PIN (lock screen) ----------
+
+const PIN_CODES_PER_HOUR = 5;
+const PIN_OTP_MAX_ATTEMPTS = 5;
+
+// "manoj@gmail.com" -> "m***@gmail.com"
+function maskEmail(email) {
+  const [name, domain] = email.split('@');
+  return `${name.slice(0, 1)}***@${domain}`;
+}
+
+// 1. Email a 6-digit code for resetting the app PIN.
+async function forgotPin(refreshToken) {
+  const { user } = await userFromRefreshToken(refreshToken);
+  if (!user.pin_hash) throw new AuthError('PIN is not set for this user', 400);
+
+  const latest = await passwordResetRepository.findLatestActiveByUserId(user.id, 'pin');
+  if (latest && Date.now() - latest.created_at.getTime() < OTP_RESEND_COOLDOWN_MS) {
+    throw new AuthError('Please wait 30 seconds before requesting another code', 429);
+  }
+  const sentLastHour = await passwordResetRepository.countSince(user.id, 'pin', new Date(Date.now() - 60 * 60 * 1000));
+  if (sentLastHour >= PIN_CODES_PER_HOUR) {
+    throw new AuthError('Too many codes requested. Please try again in an hour.', 429);
+  }
+
+  // A new code replaces any earlier unused one.
+  if (latest) await passwordResetRepository.markConsumed(latest.id);
+  const otp = generateOtp();
+  await passwordResetRepository.create({
+    user_id: user.id,
+    purpose: 'pin',
+    otp_hash: hashToken(otp),
+    otp_expires_at: new Date(Date.now() + OTP_TTL_MS),
+  });
+  await sendPinResetOtpEmail(user.email, otp);
+
+  return { email: maskEmail(user.email) };
+}
+
+// 2. Check the code; returns a single-use reset token (10 minutes).
+async function verifyPinOtp(refreshToken, otp) {
+  const { user } = await userFromRefreshToken(refreshToken);
+  const record = await passwordResetRepository.findLatestActiveByUserId(user.id, 'pin');
+
+  // A code that already produced a reset token can't be used again.
+  if (!record || record.reset_token_hash || record.otp_expires_at < new Date()) {
+    throw new AuthError('This code has expired. Please request a new one.', 400);
+  }
+
+  if (record.otp_hash !== hashToken(otp)) {
+    const attempts = record.attempts + 1;
+    if (attempts >= PIN_OTP_MAX_ATTEMPTS) {
+      await passwordResetRepository.update(record.id, { attempts, consumed_at: new Date() });
+      throw new AuthError('Too many incorrect attempts. Please request a new code.', 429);
+    }
+    await passwordResetRepository.update(record.id, { attempts });
+    const left = PIN_OTP_MAX_ATTEMPTS - attempts;
+    throw new AuthError(`Incorrect code. ${left} ${left === 1 ? 'attempt' : 'attempts'} left.`, 400);
+  }
+
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  await passwordResetRepository.update(record.id, {
+    reset_token_hash: hashToken(resetToken),
+    token_expires_at: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+  });
+  return { resetToken };
+}
+
+// 3. Save the new PIN and start a fresh session (same shape as /pin/verify).
+async function resetPin(resetToken, pin) {
+  const record = await passwordResetRepository.findValidByResetTokenHash(hashToken(resetToken), 'pin');
+  if (!record) throw new AuthError('This reset link has expired or was already used. Please start again.', 400);
+
+  const user = await userRepository.findById(record.user_id);
+  if (!user) throw new AuthError('Invalid or expired refresh token');
+
+  await passwordResetRepository.markConsumed(record.id);
+  await userRepository.update(user.id, { pin_hash: await bcrypt.hash(pin, 10) });
+  logActivity({ type: 'pin_reset', title: 'PIN reset', detail: user.email, ref_id: user.id, actor_user_id: user.id, company_id: user.company_id });
+
+  const tokens = await issueTokens(user);
+  return { user: await toUserResponse(user), ...tokens };
 }
 
 async function forgotPassword(email) {
@@ -295,6 +386,9 @@ module.exports = {
   logout,
   setPin,
   verifyPin,
+  forgotPin,
+  verifyPinOtp,
+  resetPin,
   forgotPassword,
   verifyOtp,
   resetPassword,

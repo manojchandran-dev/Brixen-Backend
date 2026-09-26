@@ -1,4 +1,8 @@
-function buildOtpEmail(otp) {
+// `heading` / `intro` let the same design serve other codes (e.g. app PIN reset).
+function buildOtpEmail(
+  otp,
+  { heading = 'Verify your email', intro = 'Enter this code to continue. It expires in 10 minutes.', textIntro = 'Your Brixen verification code is' } = {}
+) {
   const html = `<!doctype html>
 <html>
   <body style="margin:0;padding:0;background-color:#000000;">
@@ -26,9 +30,9 @@ function buildOtpEmail(otp) {
             </tr>
             <tr>
               <td align="center" style="padding:0 32px;">
-                <div style="font-size:20px;font-weight:700;color:#ffffff;">Verify your email</div>
+                <div style="font-size:20px;font-weight:700;color:#ffffff;">${heading}</div>
                 <div style="margin-top:8px;font-size:14px;line-height:20px;color:#9a9a9a;">
-                  Enter this code to continue. It expires in 10 minutes.
+                  ${intro}
                 </div>
               </td>
             </tr>
@@ -60,7 +64,7 @@ function buildOtpEmail(otp) {
   </body>
 </html>`;
 
-  const text = `Your Brixen verification code is ${otp}. It expires in 10 minutes.\n\nIf you didn't request this, you can ignore this email.`;
+  const text = `${textIntro} ${otp}. It expires in 10 minutes.\n\nIf you didn't request this, you can ignore this email.`;
 
   return { html, text };
 }

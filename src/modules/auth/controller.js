@@ -63,6 +63,20 @@ async function verifyPin(req, res) {
   }
 }
 
+// Forgot PIN: runs a service call, mapping AuthError to its status.
+async function runAuth(res, fn) {
+  try {
+    return success(res, await fn());
+  } catch (err) {
+    if (err instanceof authService.AuthError) return error(res, err.message, err.status);
+    throw err;
+  }
+}
+
+const forgotPin = (req, res) => runAuth(res, () => authService.forgotPin(req.body.refreshToken));
+const verifyPinOtp = (req, res) => runAuth(res, () => authService.verifyPinOtp(req.body.refreshToken, req.body.otp));
+const resetPin = (req, res) => runAuth(res, () => authService.resetPin(req.body.resetToken, req.body.pin));
+
 async function forgotPassword(req, res) {
   const { email } = req.body;
 
@@ -150,6 +164,9 @@ module.exports = {
   logout,
   setPin,
   verifyPin,
+  forgotPin,
+  verifyPinOtp,
+  resetPin,
   forgotPassword,
   verifyOtp,
   resetPassword,

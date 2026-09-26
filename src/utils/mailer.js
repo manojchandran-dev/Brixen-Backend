@@ -34,6 +34,21 @@ async function sendOtpEmail(to, otp) {
   });
 }
 
+// Code for resetting the app's lock-screen PIN (not the password).
+async function sendPinResetOtpEmail(to, otp) {
+  if (!resend) {
+    throw new Error('RESEND_API_KEY is not configured');
+  }
+
+  const { html, text } = buildOtpEmail(otp, {
+    heading: 'Reset your app PIN',
+    intro: 'Use this code to reset the PIN you use to unlock the Brixen app. It expires in 10 minutes. Your password is not changed.',
+    textIntro: 'Your Brixen app PIN reset code is',
+  });
+
+  await send({ from: RESEND_FROM_EMAIL, to, subject: 'Your Brixen PIN reset code', html, text });
+}
+
 async function sendWelcomeEmail(to, email, tempPassword) {
   if (!resend) {
     throw new Error('RESEND_API_KEY is not configured');
@@ -67,4 +82,4 @@ async function sendDeactivationEmail(to, email) {
   });
 }
 
-module.exports = { sendOtpEmail, sendWelcomeEmail, sendDeactivationEmail };
+module.exports = { sendOtpEmail, sendWelcomeEmail, sendDeactivationEmail, sendPinResetOtpEmail };

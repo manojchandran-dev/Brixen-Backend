@@ -180,7 +180,29 @@ function validateUpdateMe(req, res, next) {
   next();
 }
 
+// Forgot PIN. Errors also carry a message field: the app shows it to the user.
+function forgotPinValidator(rules) {
+  return (req, res, next) => {
+    const errors = rules.filter(([field, ok]) => !ok(req.body[field])).map(([, , msg]) => msg);
+    if (errors.length) return res.status(400).json({ success: false, message: errors[0], errors });
+    next();
+  };
+}
+const nonEmpty = (s) => typeof s === 'string' && s.trim().length > 0;
+const validateForgotPin = forgotPinValidator([['refreshToken', nonEmpty, 'refreshToken is required']]);
+const validateVerifyPinOtp = forgotPinValidator([
+  ['refreshToken', nonEmpty, 'refreshToken is required'],
+  ['otp', (s) => typeof s === 'string' && OTP_REGEX.test(s), 'Enter the 6-digit code'],
+]);
+const validateResetPin = forgotPinValidator([
+  ['resetToken', nonEmpty, 'resetToken is required'],
+  ['pin', (s) => typeof s === 'string' && PIN_REGEX.test(s), 'PIN must be exactly 6 digits'],
+]);
+
 module.exports = {
+  validateForgotPin,
+  validateVerifyPinOtp,
+  validateResetPin,
   validateLogin,
   validateRefresh,
   validateSetPin,

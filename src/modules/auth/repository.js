@@ -45,20 +45,26 @@ const passwordResets = {
   create(data) {
     return prisma.password_resets.create({ data });
   },
-  findLatestActiveByUserId(user_id) {
+  // `purpose` ('password' | 'pin') keeps the two flows' codes and reset
+  // tokens from ever being accepted by the other.
+  findLatestActiveByUserId(user_id, purpose = 'password') {
     return prisma.password_resets.findFirst({
-      where: { user_id, consumed_at: null },
+      where: { user_id, purpose, consumed_at: null },
       orderBy: { created_at: 'desc' },
     });
   },
-  findValidByResetTokenHash(reset_token_hash) {
+  findValidByResetTokenHash(reset_token_hash, purpose = 'password') {
     return prisma.password_resets.findFirst({
       where: {
         reset_token_hash,
+        purpose,
         consumed_at: null,
         token_expires_at: { gt: new Date() },
       },
     });
+  },
+  countSince(user_id, purpose, since) {
+    return prisma.password_resets.count({ where: { user_id, purpose, created_at: { gte: since } } });
   },
   update(id, data) {
     return prisma.password_resets.update({ where: { id }, data });

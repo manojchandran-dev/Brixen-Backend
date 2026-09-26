@@ -16,8 +16,8 @@ function findById(id) {
   return prisma.company_categories.findUnique({ where: { id } });
 }
 
-function findByIdAndCompany(id, company_id) {
-  return prisma.company_categories.findFirst({ where: { id, company_id } });
+function findGlobalById(id) {
+  return prisma.company_categories.findFirst({ where: { id, company_id: null } });
 }
 
 function update(id, data) {
@@ -36,7 +36,7 @@ module.exports = {
   findMany,
   count,
   findById,
-  findByIdAndCompany,
+  findGlobalById,
   update,
   delete: deleteById,
 };
