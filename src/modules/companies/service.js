@@ -182,20 +182,10 @@ async function updateCompanyStep2(id, data) {
     return acc;
   }, {});
 
-  const before = await companyRepository.findById(id);
+  // Contact details only. The company's login user and welcome email are
+  // created when it's first activated (updateCompanyStatus), so creating an
+  // inactive company sends nothing and nobody can log in yet.
   await companyRepository.update(id, payload);
-  const after = await companyRepository.findById(id);
-
-  const justCompleted =
-    !isStepComplete(before, ['owner_name', 'email']) && isStepComplete(after, ['owner_name', 'email']);
-
-  if (justCompleted) {
-    const existingUser = await userRepository.findByCompanyId(id);
-    if (!existingUser) {
-      await activateCompanyUser(after);
-    }
-  }
-
   return recomputeOnboardingStatus(id);
 }
 
@@ -275,8 +265,8 @@ async function updateCompanyStatus(id, status) {
 
   if (status !== company.status) {
     if (status === 'ACTIVE') {
-      // Only create the login if step 2 didn't already: the welcome email's
-      // temporary password must keep working.
+      // First activation creates the login user and sends the one welcome
+      // email. Re-activation reuses that user: same password, no new email.
       const existingUser = await userRepository.findByCompanyId(company.id);
       if (!existingUser) {
         await activateCompanyUser(company);
