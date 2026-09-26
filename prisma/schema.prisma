@@ -325,6 +325,9 @@ model support_tickets {
   assigned_to String?                   @db.VarChar(150)
   created_at  DateTime?                 @default(now()) @db.Timestamp(6)
   updated_at  DateTime?                 @default(now()) @updatedAt @db.Timestamp(6)
+  // When it last became resolved/closed (null while open). Reports bucket
+  // resolutions by this, not updated_at, which later edits move.
+  resolved_at DateTime?                 @db.Timestamp(6)
   messages    support_ticket_messages[]
 }
 

@@ -146,9 +146,17 @@ async function getTicketById(id) {
   return ticket ? toTicket(ticket) : null;
 }
 
+const RESOLVED = ['resolved', 'closed'];
+
+// resolved_at: set when a ticket becomes resolved/closed, kept while it moves
+// between those two, cleared if it's reopened.
 async function updateStatus(id, status) {
   assertOneOf('status', status, STATUSES);
-  return toTicket(await supportTicketRepository.update(id, { status }));
+  const current = await supportTicketRepository.findById(id);
+  const wasResolved = RESOLVED.includes(current.status);
+  const isResolved = RESOLVED.includes(status);
+  const resolved_at = isResolved ? (wasResolved ? current.resolved_at : new Date()) : null;
+  return toTicket(await supportTicketRepository.update(id, { status, resolved_at }));
 }
 
 async function assign(id, assigned_to) {
