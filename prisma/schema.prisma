@@ -464,3 +464,18 @@ model refresh_tokens {
   created_at DateTime  @default(now()) @db.Timestamp(6)
   users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
+
+// Audit trail for the superadmin dashboard's "Recent activity". Written
+// best-effort by utils/activityLog.js; never blocks the action it records.
+model activity_logs {
+  id            Int      @id @default(autoincrement())
+  type          String   @db.VarChar(40)
+  title         String   @db.VarChar(150)
+  detail        String?  @db.VarChar(300)
+  ref_id        String?  @db.VarChar(50)
+  actor_user_id Int?
+  company_id    Int?
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([created_at])
+}

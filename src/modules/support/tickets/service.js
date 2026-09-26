@@ -1,4 +1,5 @@
 const supportTicketRepository = require('./repository');
+const { logActivity } = require('../../../utils/activityLog');
 const companyRepository = require('../../companies/repository');
 const notificationService = require('../../notifications/inApp/service');
 const { generateTicketId, generateTicketMessageId } = require('../../../utils/ticketId');
@@ -82,6 +83,7 @@ async function createTicket(company_id, data) {
     console.error(`Failed to create notification for ticket ${ticket.id}:`, err.message);
   }
 
+  logActivity({ type: 'ticket_created', title: 'Ticket raised', detail: `${ticket.subject} · ${company.company_name}`, ref_id: ticket.id, company_id });
   return toTicket(ticket);
 }
 

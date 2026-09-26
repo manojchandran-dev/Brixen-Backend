@@ -4,6 +4,7 @@ const prefixedId = require('../../../utils/prefixedId');
 const { normalizeAudience, resolveCompanyIds } = require('../../../utils/audience');
 const deviceRepository = require('./deviceRepository');
 const fcm = require('./fcm');
+const { logActivity } = require('../../../utils/activityLog');
 
 const PRIORITIES = ['normal', 'high', 'important', 'urgent'];
 const OPEN_ON_TAP = [
@@ -219,6 +220,9 @@ async function dispatch(id, companyIds) {
   });
 
   await sendToRecipients(id, companyIds);
+
+  const { title } = await prisma.push_notifications.findUnique({ where: { id }, select: { title: true } });
+  logActivity({ type: 'notification_sent', title: 'Notification sent', detail: `${title} · ${companyIds.length} ${companyIds.length === 1 ? 'company' : 'companies'}`, ref_id: id });
   return true;
 }
 

@@ -1,4 +1,5 @@
 const companyService = require('./service');
+const { logActivity } = require('../../utils/activityLog');
 const { success, error } = require('../../core/responses/apiResponse');
 
 // companies.password holds the plaintext temporary login password (it's
@@ -8,6 +9,7 @@ const hidePassword = ({ password, ...company }) => company;
 async function createCompany(req, res) {
   try {
     const company = await companyService.createCompany(req.body);
+    logActivity({ type: 'company_created', title: 'Company created', detail: company.company_name, ref_id: company.id, actor_user_id: req.auth?.userId, company_id: company.id });
     return success(res, hidePassword(company), 201);
   } catch (err) {
     if (err instanceof companyService.CompanyError) {
@@ -103,7 +105,11 @@ async function updateCompanyStatus(req, res) {
   }
 
   try {
+    const before = await companyService.getCompanyById(id);
     const company = await companyService.updateCompanyStatus(id, req.body.status);
+    if (before?.status !== 'INACTIVE' && company.status === 'INACTIVE') {
+      logActivity({ type: 'company_suspended', title: 'Company suspended', detail: company.company_name, ref_id: company.id, actor_user_id: req.auth?.userId, company_id: company.id });
+    }
     return success(res, hidePassword(company));
   } catch (err) {
     if (err instanceof companyService.CompanyError) {

@@ -2,9 +2,11 @@ const { PORT } = require('./config');
 const app = require('./app');
 const pushNotifications = require('./modules/notifications/push/service');
 const announcements = require('./modules/notifications/announcements/service');
+const { warmHealth } = require('./utils/health');
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  warmHealth(); // so the first dashboard/health request is served from cache
 });
 
 // ponytail: in-process timer, so it pauses while a free Render instance sleeps.

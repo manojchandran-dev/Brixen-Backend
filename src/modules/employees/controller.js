@@ -1,4 +1,6 @@
 const employeeService = require('./service');
+const prisma = require('../../prisma/client');
+const { logActivity } = require('../../utils/activityLog');
 const { success, error } = require('../../core/responses/apiResponse');
 const { parseCompanyId, resolveListScope } = require('../../utils/companyScope');
 
@@ -10,6 +12,9 @@ async function createEmployee(req, res) {
 
   try {
     const employee = await employeeService.createEmployee(company_id, req.body);
+    const company = await prisma.companies.findUnique({ where: { id: company_id }, select: { company_name: true } });
+    const name = [employee.first_name, employee.last_name].filter(Boolean).join(' ');
+    logActivity({ type: 'employee_created', title: 'Employee created', detail: [name, company?.company_name].filter(Boolean).join(' · '), ref_id: employee.id, actor_user_id: req.auth?.userId, company_id });
     return success(res, employee, 201);
   } catch (err) {
     if (err instanceof employeeService.EmployeeError) {

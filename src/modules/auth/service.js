@@ -63,6 +63,8 @@ async function issueTokens(user) {
   return { accessToken, refreshToken };
 }
 
+const { logActivity } = require('../../utils/activityLog');
+
 async function login(email, password) {
   const user = await userRepository.findByEmail(email);
   if (!user) {
@@ -82,6 +84,7 @@ async function login(email, password) {
   }
 
   const tokens = await issueTokens(user);
+  logActivity({ type: 'admin_login', title: user.user_type === 'superadmin' ? 'Superadmin login' : 'Admin login', detail: user.email, ref_id: user.id, actor_user_id: user.id, company_id: user.company_id });
   return {
     user: await toUserResponse(user),
     ...tokens,
