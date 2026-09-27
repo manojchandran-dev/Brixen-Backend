@@ -1,4 +1,5 @@
 const employeeRepository = require('./repository');
+const { exact, choice, dateRange, dayRangeIST, bool, compact } = require('../../utils/listFilters');
 const companyRepository = require('../companies/repository');
 
 const EMPLOYMENT_FIELDS = ['department', 'designation', 'joining_date', 'manager_id', 'employment_type', 'salary', 'status'];
@@ -72,7 +73,11 @@ async function createEmployee(company_id, data) {
   return employeeRepository.update(employee.id, { employee_code: generatedCode });
 }
 
-async function getEmployees(company_id, { page = 1, deleted = false, limit = 20, search = '' }) {
+const EMPLOYEE_STATUSES = ['Active', 'Inactive', 'On Leave'];
+const EMPLOYMENT_TYPES = ['Full-time', 'Part-time', 'Contract', 'Intern'];
+
+// filters: status, department, employment_type (query params; missing = any).
+async function getEmployees(company_id, { page = 1, deleted = false, limit = 20, search = '', filters = {} }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
@@ -80,6 +85,11 @@ async function getEmployees(company_id, { page = 1, deleted = false, limit = 20,
     ...(company_id ? { company_id } : {}),
     // deleted=true lists the soft-deleted rows instead (to restore them).
     ...(deleted ? { deleted_at: { not: null } } : {}),
+    ...compact({
+      status: choice('status', filters.status, EMPLOYEE_STATUSES),
+      department: exact(filters.department),
+      employment_type: choice('employment_type', filters.employment_type, EMPLOYMENT_TYPES),
+    }),
     ...(search
       ? {
           OR: [

@@ -1,4 +1,5 @@
 const { Prisma } = require('@prisma/client');
+const { exact, choice, dateRange, dayRangeIST, bool, compact } = require('../../utils/listFilters');
 const productRepository = require('./repository');
 const productCategoryRepository = require('../masters/productCategories/repository');
 const unitRepository = require('../masters/units/repository');
@@ -93,7 +94,11 @@ async function createProduct(company_id, data) {
   throw new Error('Failed to generate a unique product id, please retry');
 }
 
-async function getProducts(company_id, { page = 1, deleted = false, limit = 20, search = '', category_id, status }) {
+const PRODUCT_STATUSES = ['Active', 'Inactive'];
+const PRODUCT_GENDERS = ['Men', 'Women', 'Unisex', 'Kids'];
+
+// filters: category_id, status, gender.
+async function getProducts(company_id, { page = 1, deleted = false, limit = 20, search = '', category_id, status, filters = {} }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
@@ -102,11 +107,16 @@ async function getProducts(company_id, { page = 1, deleted = false, limit = 20, 
     // deleted=true lists the soft-deleted rows instead (to restore them).
     ...(deleted ? { deleted_at: { not: null } } : {}),
     ...(category_id ? { category_id } : {}),
-    ...(status ? { status } : {}),
+    ...compact({
+      status: choice('status', status, PRODUCT_STATUSES),
+      gender: choice('gender', filters.gender, PRODUCT_GENDERS),
+    }),
     ...(search
       ? {
           OR: [
             { product_name: { contains: search, mode: 'insensitive' } },
+            { id: { contains: search, mode: 'insensitive' } },
+            { product_categories: { name: { contains: search, mode: 'insensitive' } } },
             { color: { contains: search, mode: 'insensitive' } },
             { design_pattern: { contains: search, mode: 'insensitive' } },
           ],

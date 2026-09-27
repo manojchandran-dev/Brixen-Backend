@@ -20,7 +20,7 @@ async function getCompanyCategories(req, res) {
   const limit = parseInt(req.query.limit, 10) || 20;
   const search = req.query.search || '';
 
-  const result = await companyCategoryService.getCompanyCategories({ page, limit, deleted: req.query.deleted === 'true', search });
+  const result = await companyCategoryService.getCompanyCategories({ page, limit, deleted: req.query.deleted === 'true', search, status: req.query.status });
   return success(res, result);
 }
 

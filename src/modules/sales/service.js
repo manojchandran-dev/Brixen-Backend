@@ -1,4 +1,5 @@
 const { Prisma } = require('@prisma/client');
+const { exact, choice, dateRange, dayRangeIST, bool, compact } = require('../../utils/listFilters');
 const { sales: saleRepository, saleItems: saleItemRepository } = require('./repository');
 const customerRepository = require('../customers/repository');
 const companyRepository = require('../companies/repository');
@@ -88,19 +89,29 @@ async function createSale(company_id, data) {
   throw new Error('Failed to generate a unique sale id, please retry');
 }
 
-async function getSales(company_id, { page = 1, limit = 20, search = '', customer_id, payment_status, from, to }) {
+const PAYMENT_STATUSES = ['Pending', 'Paid', 'Partial'];
+
+// filters: payment_status, payment_type, invoice_type, from/to on bill_date.
+async function getSales(company_id, { page = 1, limit = 20, search = '', customer_id, filters = {} }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
   const where = {
     ...(company_id ? { company_id } : {}),
     ...(customer_id ? { customer_id } : {}),
-    ...(payment_status ? { payment_status } : {}),
-    ...(from || to ? { bill_date: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
+    ...compact({
+      payment_status: choice('payment_status', filters.payment_status, PAYMENT_STATUSES),
+      payment_type: exact(filters.payment_type),
+      invoice_type: exact(filters.invoice_type),
+      bill_date: dateRange(filters.from, filters.to),
+    }),
     ...(search
       ? {
           OR: [
+            { customers: { name: { contains: search, mode: 'insensitive' } } },
+            { customers: { shop_name: { contains: search, mode: 'insensitive' } } },
             { invoice_type: { contains: search, mode: 'insensitive' } },
+            { payment_status: { contains: search, mode: 'insensitive' } },
             { notes: { contains: search, mode: 'insensitive' } },
             { payment_type: { contains: search, mode: 'insensitive' } },
           ],

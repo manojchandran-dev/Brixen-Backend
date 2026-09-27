@@ -1,4 +1,5 @@
 const { Prisma } = require('@prisma/client');
+const { exact, choice, dateRange, dayRangeIST, bool, compact } = require('../../utils/listFilters');
 const customerRepository = require('./repository');
 const companyRepository = require('../companies/repository');
 const { generateCustomerId } = require('../../utils/customerId');
@@ -45,7 +46,9 @@ async function createCustomer(company_id, data) {
   throw new Error('Failed to generate a unique customer id, please retry');
 }
 
-async function getCustomers(company_id, { page = 1, deleted = false, limit = 20, search = '' }) {
+// filters: has_gst (true/false), from/to on created_at (IST days).
+async function getCustomers(company_id, { page = 1, deleted = false, limit = 20, search = '', filters = {} }) {
+  const hasGst = bool('has_gst', filters.has_gst);
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
@@ -53,6 +56,9 @@ async function getCustomers(company_id, { page = 1, deleted = false, limit = 20,
     ...(company_id ? { company_id } : {}),
     // deleted=true lists the soft-deleted rows instead (to restore them).
     ...(deleted ? { deleted_at: { not: null } } : {}),
+    ...compact({ created_at: dayRangeIST(filters.from, filters.to) }),
+    // Wrapped in AND so it combines with the search's OR instead of replacing it.
+    ...(hasGst === undefined ? {} : { AND: [hasGst ? { NOT: [{ gst_number: null }, { gst_number: '' }] } : { OR: [{ gst_number: null }, { gst_number: '' }] }] }),
     ...(search
       ? {
           OR: [

@@ -34,10 +34,8 @@ async function getExpenses(req, res) {
   const search = req.query.search || '';
   const category_id = req.query.category_id || undefined;
   const unit_id = req.query.unit_id || undefined;
-  const from = req.query.from ? new Date(req.query.from) : undefined;
-  const to = req.query.to ? new Date(req.query.to) : undefined;
 
-  const result = await expenseService.getExpenses(company_id, { page, limit, search, category_id, unit_id, from, to });
+  const result = await expenseService.getExpenses(company_id, { page, limit, search, category_id, unit_id, filters: req.query });
   return success(res, result);
 }
 

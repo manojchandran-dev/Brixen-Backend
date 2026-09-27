@@ -1,4 +1,5 @@
 const { Prisma } = require('@prisma/client');
+const { exact, choice, dateRange, dayRangeIST, bool, compact } = require('../../utils/listFilters');
 const expenseRepository = require('./repository');
 const expenseCategoryRepository = require('../masters/expenseCategories/repository');
 const unitRepository = require('../masters/units/repository');
@@ -69,7 +70,8 @@ async function createExpense(company_id, data) {
   throw new Error('Failed to generate a unique expense id, please retry');
 }
 
-async function getExpenses(company_id, { page = 1, limit = 20, search = '', category_id, unit_id, from, to }) {
+// filters: category_id, payment_method, from/to on expense_date.
+async function getExpenses(company_id, { page = 1, limit = 20, search = '', category_id, unit_id, filters = {} }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
@@ -77,13 +79,15 @@ async function getExpenses(company_id, { page = 1, limit = 20, search = '', cate
     ...(company_id ? { company_id } : {}),
     ...(category_id ? { category_id } : {}),
     ...(unit_id ? { unit_id } : {}),
-    ...(from || to
-      ? { expense_date: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
-      : {}),
+    ...compact({
+      payment_method: exact(filters.payment_method),
+      expense_date: dateRange(filters.from, filters.to),
+    }),
     ...(search
       ? {
           OR: [
             { title: { contains: search, mode: 'insensitive' } },
+            { expense_categories: { name: { contains: search, mode: 'insensitive' } } },
             { notes: { contains: search, mode: 'insensitive' } },
             { payment_method: { contains: search, mode: 'insensitive' } },
           ],

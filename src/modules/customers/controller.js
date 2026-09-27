@@ -33,7 +33,7 @@ async function getCustomers(req, res) {
   const limit = parseInt(req.query.limit, 10) || 20;
   const search = req.query.search || '';
 
-  const result = await customerService.getCustomers(company_id, { page, limit, deleted: req.query.deleted === 'true', search });
+  const result = await customerService.getCustomers(company_id, { page, limit, deleted: req.query.deleted === 'true', search, filters: req.query });
   return success(res, result);
 }
 

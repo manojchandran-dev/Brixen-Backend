@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const asyncHandler = require('../../middleware/asyncHandler');
+const { filterOptionsHandler, categoriesOf } = require('../../utils/listFilters');
 const restoreHandler = require('../../utils/restore');
 const productController = require('./controller');
 const {
@@ -14,6 +15,8 @@ const router = Router();
 
 router.post('/', validateCreateProduct, asyncHandler(productController.createProduct));
 router.get('/', asyncHandler(productController.getProducts));
+// Distinct values for the app's filter choices (before '/:id').
+router.get('/filters', asyncHandler(filterOptionsHandler('products', ['status', 'gender'], categoriesOf('product_categories'))));
 router.get('/:id', asyncHandler(productController.getProductById));
 router.put('/:id', validateUpdateProduct, asyncHandler(productController.updateProduct));
 router.put('/:id/step2', validateProductStep2, asyncHandler(productController.updateProductStep2));

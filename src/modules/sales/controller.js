@@ -33,11 +33,8 @@ async function getSales(req, res) {
   const limit = parseInt(req.query.limit, 10) || 20;
   const search = req.query.search || '';
   const customer_id = req.query.customer_id || undefined;
-  const payment_status = req.query.payment_status || undefined;
-  const from = req.query.from ? new Date(req.query.from) : undefined;
-  const to = req.query.to ? new Date(req.query.to) : undefined;
 
-  const result = await saleService.getSales(company_id, { page, limit, search, customer_id, payment_status, from, to });
+  const result = await saleService.getSales(company_id, { page, limit, search, customer_id, filters: req.query });
   return success(res, result);
 }
 

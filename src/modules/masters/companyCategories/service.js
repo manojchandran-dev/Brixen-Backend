@@ -1,4 +1,5 @@
 const { Prisma } = require('@prisma/client');
+const { choice, compact } = require('../../../utils/listFilters');
 const companyCategoryRepository = require('./repository');
 const { generateCompanyCategoryId } = require('../../../utils/companyCategoryId');
 
@@ -34,7 +35,7 @@ async function createCompanyCategory(data) {
   throw new Error('Failed to generate a unique company category id, please retry');
 }
 
-async function getCompanyCategories({ page = 1, deleted = false, limit = 20, search = '' }) {
+async function getCompanyCategories({ page = 1, deleted = false, limit = 20, search = '', status }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
 
@@ -42,6 +43,8 @@ async function getCompanyCategories({ page = 1, deleted = false, limit = 20, sea
     company_id: null,
     // deleted=true lists the soft-deleted rows instead (to restore them).
     ...(deleted ? { deleted_at: { not: null } } : {}),
+    // status=ACTIVE/INACTIVE (any case); missing = any.
+    ...compact({ status: choice('status', status, ['ACTIVE', 'INACTIVE']) }),
     ...(search
       ? {
           OR: [

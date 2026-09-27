@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const asyncHandler = require('../../middleware/asyncHandler');
+const { filterOptionsHandler, categoriesOf } = require('../../utils/listFilters');
 const restoreHandler = require('../../utils/restore');
 const employeeController = require('./controller');
 const {
@@ -13,6 +14,8 @@ const router = Router();
 
 router.post('/', validateCreateEmployee, asyncHandler(employeeController.createEmployee));
 router.get('/', asyncHandler(employeeController.getEmployees));
+// Distinct values for the app's filter choices (before '/:id').
+router.get('/filters', asyncHandler(filterOptionsHandler('employees', ['status', 'department', 'employment_type'])));
 router.get('/:id', asyncHandler(employeeController.getEmployeeById));
 router.put('/:id', validateUpdateEmployee, asyncHandler(employeeController.updateEmployee));
 router.put('/:id/step2', validateEmployeeStep2, asyncHandler(employeeController.updateEmployeeStep2));
