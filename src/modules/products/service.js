@@ -1,4 +1,6 @@
 const { Prisma } = require('@prisma/client');
+const prisma = require('../../prisma/client');
+const { setStock } = require('../inventory/stock');
 const { exact, choice, dateRange, dayRangeIST, bool, compact } = require('../../utils/listFilters');
 const productRepository = require('./repository');
 const productCategoryRepository = require('../masters/productCategories/repository');
@@ -67,25 +69,31 @@ async function recomputeOnboardingStatus(id) {
   return productRepository.update(id, { onboarding_status });
 }
 
-async function createProduct(company_id, data) {
+async function createProduct(company_id, data, actorId = null) {
   const { id, onboarding_status, company_id: _companyId, ...rest } = data;
   await assertValidCompany(company_id);
   await assertValidCategory(rest.category_id, company_id);
 
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt += 1) {
     try {
-      return await productRepository.create({
+      const product = await productRepository.create({
         id: generateProductId(),
         company_id,
         product_name: rest.product_name,
         category_id: rest.category_id,
         gender: rest.gender,
         design_pattern: rest.design_pattern,
-        // Opening stock (optional); later changes come from sales or PUT /:id.
-        ...(rest.stock_quantity !== undefined ? { stock_quantity: rest.stock_quantity } : {}),
         ...(rest.low_stock_threshold !== undefined ? { low_stock_threshold: rest.low_stock_threshold } : {}),
         onboarding_status: 'pending',
       });
+      // Opening stock goes through the ledger like any other stock change.
+      if (Number.isInteger(rest.stock_quantity) && rest.stock_quantity !== 0) {
+        await prisma.$transaction((tx) =>
+          setStock(tx, { product_id: product.id, quantity: rest.stock_quantity, company_id, reason: 'opening', created_by: actorId })
+        );
+        return productRepository.findById(product.id);
+      }
+      return product;
     } catch (err) {
       const isDuplicateId = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
       if (!isDuplicateId) {
@@ -147,8 +155,10 @@ async function getProductById(id, company_id) {
   return productRepository.findByIdAndCompany(id, company_id);
 }
 
-async function updateProduct(id, company_id, data) {
-  const { id: _id, onboarding_status, company_id: _companyId, ...rest } = data;
+async function updateProduct(id, company_id, data, actorId = null) {
+  // stock_quantity is not written directly: setting it records a 'correction'
+  // in the stock ledger (see inventory/stock.js).
+  const { id: _id, onboarding_status, company_id: _companyId, stock_quantity, ...rest } = data;
 
   if (rest.category_id !== undefined) {
     await assertValidCategory(rest.category_id, company_id);
@@ -157,7 +167,12 @@ async function updateProduct(id, company_id, data) {
     await assertValidUnit(rest.unit_id, company_id);
   }
 
-  await productRepository.update(id, rest);
+  if (Object.keys(rest).length) await productRepository.update(id, rest);
+  if (stock_quantity !== undefined) {
+    await prisma.$transaction((tx) =>
+      setStock(tx, { product_id: id, quantity: stock_quantity, company_id, reason: 'correction', created_by: actorId })
+    );
+  }
   return recomputeOnboardingStatus(id);
 }
 

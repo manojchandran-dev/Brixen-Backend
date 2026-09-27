@@ -1,6 +1,7 @@
 const { Prisma } = require('@prisma/client');
 const { exact, choice, dateRange, dayRangeIST, bool, compact } = require('../../utils/listFilters');
 const prisma = require('../../prisma/client');
+const { applyStock, netChanges } = require('../inventory/stock');
 const { sales: saleRepository, saleItems: saleItemRepository } = require('./repository');
 const customerRepository = require('../customers/repository');
 const companyRepository = require('../companies/repository');
@@ -178,29 +179,15 @@ async function updateSale(id, company_id, data) {
   return saleRepository.update(id, rest);
 }
 
-// Sum of quantities per product: { product_id: qty }.
-const qtyByProduct = (items) =>
-  items.reduce((acc, i) => ({ ...acc, [i.product_id]: (acc[i.product_id] ?? 0) + Number(i.quantity) }), {});
-
-// Moves stock by the net change per product: +old quantities (lines being
-// replaced/removed) - new quantities. One update per product, inside the
-// caller's transaction. Stock may go negative (an oversell shows as out of
-// stock rather than blocking the sale).
-async function applyStockChange(tx, oldItems, newItems) {
-  const oldQty = qtyByProduct(oldItems);
-  const newQty = qtyByProduct(newItems);
-  for (const product_id of new Set([...Object.keys(oldQty), ...Object.keys(newQty)])) {
-    const delta = (oldQty[product_id] ?? 0) - (newQty[product_id] ?? 0);
-    if (delta !== 0) {
-      await tx.products.updateMany({ where: { id: product_id }, data: { stock_quantity: { increment: delta } } });
-    }
-  }
-}
+// Sales move stock OUT (sign -1) through the shared ledger. Stock may go
+// negative: an oversell shows as out of stock rather than blocking the sale.
+const saleStock = (tx, oldItems, newItems, { company_id, reference_id, created_by }) =>
+  applyStock(tx, netChanges(oldItems, newItems, -1), { company_id, type: 'sale', reference_id, created_by });
 
 // Replaces the sale's lines. In one transaction: stock moves by the net
 // change, and each line snapshots cost_price -- a product already on the
 // sale keeps its original cost, so editing an old sale doesn't reprice it.
-async function updateSaleStep2(id, company_id, data) {
+async function updateSaleStep2(id, company_id, data, actorId = null) {
   const { items, tax_percentage } = data;
 
   for (const item of items) {
@@ -242,7 +229,7 @@ async function updateSaleStep2(id, company_id, data) {
         item.cost_price = keptCost.has(item.product_id) ? keptCost.get(item.product_id) : currentCost.get(item.product_id) ?? null;
       }
 
-      await applyStockChange(tx, oldItems, preparedItems);
+      await saleStock(tx, oldItems, preparedItems, { company_id, reference_id: id, created_by: actorId });
       await tx.sale_items.deleteMany({ where: { sale_id: id } });
       await tx.sale_items.createMany({ data: preparedItems });
       await tx.sales.update({
@@ -264,11 +251,12 @@ async function updateSaleStep2(id, company_id, data) {
 }
 
 // Deleting a sale puts its quantities back in stock (same transaction).
-async function deleteSale(id) {
+async function deleteSale(id, actorId = null) {
   return prisma.$transaction(
     async (tx) => {
+      const { company_id } = await tx.sales.findUnique({ where: { id }, select: { company_id: true } });
       const oldItems = await tx.sale_items.findMany({ where: { sale_id: id } });
-      await applyStockChange(tx, oldItems, []);
+      await saleStock(tx, oldItems, [], { company_id, reference_id: id, created_by: actorId });
       return tx.sales.delete({ where: { id } });
     },
     { timeout: 30000, maxWait: 10000 }

@@ -13,7 +13,7 @@ async function createProduct(req, res) {
   }
 
   try {
-    const product = await productService.createProduct(company_id, req.body);
+    const product = await productService.createProduct(company_id, req.body, req.auth?.userId);
     return success(res, product, 201);
   } catch (err) {
     if (err instanceof productService.ProductError) {
@@ -73,7 +73,7 @@ async function updateProduct(req, res) {
   }
 
   try {
-    const product = await productService.updateProduct(id, company_id, req.body);
+    const product = await productService.updateProduct(id, company_id, req.body, req.auth?.userId);
     return success(res, product);
   } catch (err) {
     if (err instanceof productService.ProductError) {

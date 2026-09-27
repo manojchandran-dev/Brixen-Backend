@@ -116,7 +116,7 @@ async function updateSaleStep2(req, res) {
   }
 
   try {
-    const sale = await saleService.updateSaleStep2(id, company_id, req.body);
+    const sale = await saleService.updateSaleStep2(id, company_id, req.body, req.auth?.userId);
     return success(res, sale);
   } catch (err) {
     if (err instanceof saleService.SaleError) {
@@ -141,7 +141,7 @@ async function deleteSale(req, res) {
     return error(res, 'Sale not found', 404);
   }
 
-  await saleService.deleteSale(id);
+  await saleService.deleteSale(id, req.auth?.userId);
   return res.status(204).send();
 }
 

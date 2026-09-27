@@ -12,6 +12,8 @@ const permissionRoutes = require('../../modules/permissions/routes');
 const uploadRoutes = require('../../modules/uploads/routes');
 const supportRoutes = require('../../modules/support/routes');
 const notificationRoutes = require('../../modules/notifications/routes');
+const purchaseRoutes = require('../../modules/purchases/routes');
+const inventoryRoutes = require('../../modules/inventory/routes');
 const asyncHandler = require('../../middleware/asyncHandler');
 const session = require('../../middleware/session.middleware');
 const roleMiddleware = require('../../middleware/role.middleware');
@@ -41,6 +43,9 @@ router.use('/customers', requirePermission('Customers'), customerRoutes);
 router.use('/sales', requirePermission('Sales'), saleRoutes);
 router.use(dashboardRoutes);
 router.use('/products', requirePermission('Products'), productRoutes);
+router.use('/purchases', requirePermission('Purchases'), purchaseRoutes);
+// Stock is part of a product, so inventory uses the Products permission.
+router.use('/inventory', requirePermission('Products'), inventoryRoutes);
 // Companies may read their own permissions; only superadmin changes them.
 router.use('/permissions', (req, res, next) => (req.method === 'GET' ? next() : roleMiddleware(req, res, next)), permissionRoutes);
 router.use('/uploads', uploadRoutes);

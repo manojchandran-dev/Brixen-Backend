@@ -16,6 +16,7 @@ const DEFAULT_MODULES = [
   { name: 'Customers', description: 'Customer records', visible_to_superadmin: false },
   { name: 'Expenses', description: 'Track spending', visible_to_superadmin: false },
   { name: 'Products', description: 'Garments catalog', visible_to_superadmin: false },
+  { name: 'Purchases', description: 'Supplier bills & stock in', visible_to_superadmin: false },
   {
     name: 'Masters',
     description: 'Categories & units',
