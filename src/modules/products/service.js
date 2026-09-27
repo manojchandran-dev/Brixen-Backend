@@ -81,6 +81,9 @@ async function createProduct(company_id, data) {
         category_id: rest.category_id,
         gender: rest.gender,
         design_pattern: rest.design_pattern,
+        // Opening stock (optional); later changes come from sales or PUT /:id.
+        ...(rest.stock_quantity !== undefined ? { stock_quantity: rest.stock_quantity } : {}),
+        ...(rest.low_stock_threshold !== undefined ? { low_stock_threshold: rest.low_stock_threshold } : {}),
         onboarding_status: 'pending',
       });
     } catch (err) {

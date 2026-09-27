@@ -57,6 +57,17 @@ function validateGalleryUrls(body, errors) {
   }
 }
 
+// stock_quantity: whole number (may be negative after an oversell);
+// low_stock_threshold: whole number >= 0.
+function validateStock(body, errors) {
+  if (body.stock_quantity !== undefined && !Number.isInteger(body.stock_quantity)) {
+    errors.push('stock_quantity must be a whole number');
+  }
+  if (body.low_stock_threshold !== undefined && !(Number.isInteger(body.low_stock_threshold) && body.low_stock_threshold >= 0)) {
+    errors.push('low_stock_threshold must be a whole number, 0 or more');
+  }
+}
+
 // Step 1 — Basic Info
 function validateCreateProduct(req, res, next) {
   const { product_name, company_id } = req.body;
@@ -73,6 +84,7 @@ function validateCreateProduct(req, res, next) {
   validateId(req.body, 'category_id', errors);
   validateEnum(req.body, 'gender', GENDERS, errors, { required: true });
   validateOptionalString(req.body, 'design_pattern', errors);
+  validateStock(req.body, errors);
 
   if (errors.length) {
     return res.status(400).json({ success: false, errors });
@@ -104,6 +116,7 @@ function validateUpdateProduct(req, res, next) {
   validatePrice(req.body, 'retail_price', errors);
   validatePrice(req.body, 'wholesale_price', errors);
   validateGalleryUrls(req.body, errors);
+  validateStock(req.body, errors);
 
   if (errors.length) {
     return res.status(400).json({ success: false, errors });

@@ -80,6 +80,7 @@ function validateCreateSale(req, res, next) {
   validateDecimal(req.body, 'tax_percentage', errors, { required: false });
   validateDecimal(req.body, 'tax_amount', errors, { required: false });
   validateDecimal(req.body, 'total_amount', errors, { required: false });
+  validateDecimal(req.body, 'amount_paid', errors, { required: false });
   validateEnum(req.body, 'payment_type', PAYMENT_TYPES, errors);
   validateEnum(req.body, 'payment_status', PAYMENT_STATUSES, errors);
 
@@ -159,6 +160,7 @@ function validateUpdateSale(req, res, next) {
   validateDecimal(req.body, 'tax_percentage', errors, { required: false });
   validateDecimal(req.body, 'tax_amount', errors, { required: false });
   validateDecimal(req.body, 'total_amount', errors, { required: false });
+  validateDecimal(req.body, 'amount_paid', errors, { required: false });
   validateEnum(req.body, 'payment_type', PAYMENT_TYPES, errors);
   validateEnum(req.body, 'payment_status', PAYMENT_STATUSES, errors);
 

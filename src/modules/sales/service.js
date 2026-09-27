@@ -1,5 +1,6 @@
 const { Prisma } = require('@prisma/client');
 const { exact, choice, dateRange, dayRangeIST, bool, compact } = require('../../utils/listFilters');
+const prisma = require('../../prisma/client');
 const { sales: saleRepository, saleItems: saleItemRepository } = require('./repository');
 const customerRepository = require('../customers/repository');
 const companyRepository = require('../companies/repository');
@@ -76,6 +77,8 @@ async function createSale(company_id, data) {
         total_amount,
         payment_type: data.payment_type,
         payment_status: data.payment_status || 'Pending',
+        // Paid means fully paid unless an amount is given.
+        amount_paid: data.amount_paid ?? ((data.payment_status || 'Pending') === 'Paid' ? total_amount : 0),
         notes: data.notes,
       });
     } catch (err) {
@@ -163,24 +166,56 @@ async function updateSale(id, company_id, data) {
     }
   }
 
+  // Marking a sale Paid without an amount means it's fully paid; the amount
+  // paid can't exceed the total.
+  if (rest.amount_paid !== undefined || rest.payment_status === 'Paid') {
+    const existing = await saleRepository.findByIdAndCompany(id, company_id);
+    const total = Number(rest.total_amount ?? existing.total_amount ?? 0);
+    if (rest.amount_paid === undefined) rest.amount_paid = total;
+    if (Number(rest.amount_paid) > total) throw new SaleError('amount_paid cannot be more than the sale total');
+  }
+
   return saleRepository.update(id, rest);
 }
 
+// Sum of quantities per product: { product_id: qty }.
+const qtyByProduct = (items) =>
+  items.reduce((acc, i) => ({ ...acc, [i.product_id]: (acc[i.product_id] ?? 0) + Number(i.quantity) }), {});
+
+// Moves stock by the net change per product: +old quantities (lines being
+// replaced/removed) - new quantities. One update per product, inside the
+// caller's transaction. Stock may go negative (an oversell shows as out of
+// stock rather than blocking the sale).
+async function applyStockChange(tx, oldItems, newItems) {
+  const oldQty = qtyByProduct(oldItems);
+  const newQty = qtyByProduct(newItems);
+  for (const product_id of new Set([...Object.keys(oldQty), ...Object.keys(newQty)])) {
+    const delta = (oldQty[product_id] ?? 0) - (newQty[product_id] ?? 0);
+    if (delta !== 0) {
+      await tx.products.updateMany({ where: { id: product_id }, data: { stock_quantity: { increment: delta } } });
+    }
+  }
+}
+
+// Replaces the sale's lines. In one transaction: stock moves by the net
+// change, and each line snapshots cost_price -- a product already on the
+// sale keeps its original cost, so editing an old sale doesn't reprice it.
 async function updateSaleStep2(id, company_id, data) {
   const { items, tax_percentage } = data;
 
-  const preparedItems = [];
-  let subtotal = 0;
-
   for (const item of items) {
     await assertValidProduct(item.product_id, company_id);
+  }
+  const products = await productRepository.findManyByIdsAndCompany([...new Set(items.map((i) => i.product_id))], company_id);
+  const currentCost = new Map(products.map((p) => [p.id, p.cost_price]));
 
+  let subtotal = 0;
+  const preparedItems = items.map((item) => {
     const price = Number(item.price);
     const quantity = Number(item.quantity);
     const line_total = round2(price * quantity);
     subtotal += line_total;
-
-    preparedItems.push({
+    return {
       id: generateSaleItemId(),
       sale_id: id,
       company_id,
@@ -190,23 +225,54 @@ async function updateSaleStep2(id, company_id, data) {
       price,
       quantity,
       line_total,
-    });
-  }
+    };
+  });
 
   subtotal = round2(subtotal);
   const taxPct = tax_percentage !== undefined && tax_percentage !== null ? Number(tax_percentage) : 0;
   const tax_amount = round2((subtotal * taxPct) / 100);
   const total_amount = round2(subtotal + tax_amount);
 
-  await saleItemRepository.deleteManyBySaleId(id);
-  await saleItemRepository.createMany(preparedItems);
-  await saleRepository.update(id, { subtotal, tax_percentage: taxPct, tax_amount, total_amount });
+  await prisma.$transaction(
+    async (tx) => {
+      const sale = await tx.sales.findUnique({ where: { id }, select: { payment_status: true } });
+      const oldItems = await tx.sale_items.findMany({ where: { sale_id: id } });
+      const keptCost = new Map(oldItems.map((i) => [i.product_id, i.cost_price]));
+      for (const item of preparedItems) {
+        item.cost_price = keptCost.has(item.product_id) ? keptCost.get(item.product_id) : currentCost.get(item.product_id) ?? null;
+      }
+
+      await applyStockChange(tx, oldItems, preparedItems);
+      await tx.sale_items.deleteMany({ where: { sale_id: id } });
+      await tx.sale_items.createMany({ data: preparedItems });
+      await tx.sales.update({
+        where: { id },
+        data: {
+          subtotal,
+          tax_percentage: taxPct,
+          tax_amount,
+          total_amount,
+          // A paid sale stays fully paid when its total changes.
+          ...(sale.payment_status === 'Paid' ? { amount_paid: total_amount } : {}),
+        },
+      });
+    },
+    { timeout: 30000, maxWait: 10000 }
+  );
 
   return saleRepository.findByIdAndCompany(id, company_id);
 }
 
+// Deleting a sale puts its quantities back in stock (same transaction).
 async function deleteSale(id) {
-  return saleRepository.delete(id);
+  return prisma.$transaction(
+    async (tx) => {
+      const oldItems = await tx.sale_items.findMany({ where: { sale_id: id } });
+      await applyStockChange(tx, oldItems, []);
+      return tx.sales.delete({ where: { id } });
+    },
+    { timeout: 30000, maxWait: 10000 }
+  );
 }
 
 module.exports = {

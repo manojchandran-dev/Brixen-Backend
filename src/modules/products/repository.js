@@ -31,7 +31,13 @@ function deleteById(id) {
   return prisma.products.delete({ where: { id } });
 }
 
+// Several products of one company at once (e.g. a sale's lines).
+function findManyByIdsAndCompany(ids, company_id) {
+  return prisma.products.findMany({ where: { id: { in: ids }, company_id } });
+}
+
 module.exports = {
+  findManyByIdsAndCompany,
   create,
   findMany,
   count,
