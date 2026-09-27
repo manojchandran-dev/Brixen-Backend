@@ -12,6 +12,11 @@ router.post('/devices', authenticate, asyncHandler(pushNotificationController.re
 router.delete('/devices', authenticate, asyncHandler(pushNotificationController.unregisterDevice));
 router.post('/:id/opened', authenticate, asyncHandler(pushNotificationController.markOpened));
 
+// A company's inbox: every push it received, readable later in the app.
+// Mark one read with POST /:id/opened (same as tapping the push).
+router.get('/inbox', asyncHandler(pushNotificationController.inbox));
+router.post('/inbox/read-all', asyncHandler(pushNotificationController.markAllRead));
+
 router.use(roleMiddleware);
 
 router.get('/', asyncHandler(pushNotificationController.list));

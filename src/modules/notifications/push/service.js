@@ -350,6 +350,55 @@ async function markOpened(id, company_id) {
   });
 }
 
+// ---------- Company inbox ----------
+// Every push this company received -- sent to it directly or through an
+// audience rule (all companies / plan / status) -- so a push the user missed
+// on the device can still be read in the app. One recipient row per company
+// per push is the source; "read" is opened_at (also set when the push is tapped).
+// Includes pushes that never reached a device; hides ones the superadmin deleted.
+const inboxWhere = (company_id) => ({ company_id, push_notifications: { deleted_at: null } });
+
+async function inbox(company_id, { page, limit, unread_only }) {
+  const take = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+  const pageNo = Math.max(parseInt(page, 10) || 1, 1);
+  const where = { ...inboxWhere(company_id), ...(unread_only ? { opened_at: null } : {}) };
+
+  const [rows, total, unread] = await Promise.all([
+    prisma.push_notification_recipients.findMany({
+      where,
+      orderBy: { push_notifications: { sent_at: 'desc' } },
+      skip: (pageNo - 1) * take,
+      take,
+      include: { push_notifications: true },
+    }),
+    prisma.push_notification_recipients.count({ where }),
+    prisma.push_notification_recipients.count({ where: { ...inboxWhere(company_id), opened_at: null } }),
+  ]);
+
+  return {
+    items: rows.map(({ push_notifications: n, opened_at }) => ({
+      id: n.id,
+      title: n.title,
+      message: n.message,
+      priority: n.priority,
+      open_on_tap: n.open_on_tap,
+      specific_page_route: n.specific_page_route,
+      sent_at: n.sent_at,
+      read: opened_at !== null,
+      read_at: opened_at,
+    })),
+    meta: { page: pageNo, limit: take, total, pages: Math.ceil(total / take), unread },
+  };
+}
+
+async function markAllRead(company_id) {
+  const { count } = await prisma.push_notification_recipients.updateMany({
+    where: { ...inboxWhere(company_id), opened_at: null },
+    data: { opened_at: new Date() },
+  });
+  return { marked: count };
+}
+
 const PLATFORMS = ['ios', 'android', 'web'];
 
 async function registerDevice(company_id, token, platform) {
@@ -378,6 +427,8 @@ module.exports = {
   cancel,
   dispatchDue,
   markOpened,
+  inbox,
+  markAllRead,
   registerDevice,
   unregisterDevice,
 };

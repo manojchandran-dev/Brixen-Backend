@@ -74,8 +74,28 @@ async function markOpened(req, res) {
   );
 }
 
+// Company inbox (company accounts only; the company comes from the token).
+function companyOnly(req, res) {
+  if (req.auth?.companyId) return req.auth.companyId;
+  error(res, 'Only company accounts have a notification inbox', 403);
+  return null;
+}
+
+async function inbox(req, res) {
+  const company_id = companyOnly(req, res);
+  if (!company_id) return;
+  const { page, limit } = req.query;
+  return run(res, () => pushNotificationService.inbox(company_id, { page, limit, unread_only: req.query.unread === 'true' }));
+}
+
+async function markAllRead(req, res) {
+  const company_id = companyOnly(req, res);
+  if (!company_id) return;
+  return run(res, () => pushNotificationService.markAllRead(company_id));
+}
+
 async function unregisterDevice(req, res) {
   return run(res, () => pushNotificationService.unregisterDevice(req.body.token), 204);
 }
 
-module.exports = { list, create, get, update, remove, duplicate, cancel, markOpened, registerDevice, unregisterDevice };
+module.exports = { list, create, get, update, remove, duplicate, cancel, markOpened, registerDevice, unregisterDevice, inbox, markAllRead };
