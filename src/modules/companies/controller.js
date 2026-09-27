@@ -107,9 +107,11 @@ async function updateCompanyStatus(req, res) {
   try {
     const before = await companyService.getCompanyById(id);
     const company = await companyService.updateCompanyStatus(id, req.body.status);
-    if (before?.status !== 'INACTIVE' && company.status === 'INACTIVE') {
-      logActivity({ type: 'company_suspended', title: 'Company suspended', detail: company.company_name, ref_id: company.id, actor_user_id: req.auth?.userId, company_id: company.id });
-    }
+    const changed = (type, title) =>
+      logActivity({ type, title, detail: company.company_name, ref_id: company.id, actor_user_id: req.auth?.userId, company_id: company.id });
+    if (before?.status !== 'INACTIVE' && company.status === 'INACTIVE') changed('company_suspended', 'Company suspended');
+    // Activation creates the company's login and sends its welcome email.
+    if (before?.status !== 'ACTIVE' && company.status === 'ACTIVE') changed('company_activated', 'Company activated');
     return success(res, hidePassword(company));
   } catch (err) {
     if (err instanceof companyService.CompanyError) {

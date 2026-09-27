@@ -38,7 +38,7 @@ model companies {
   gallery_urls            String[]                       @default([])
   onboarding_status       String?                        @default("pending") @db.VarChar(20)
   created_at              DateTime?                      @default(now()) @db.Timestamp(6)
-  updated_at              DateTime?                      @default(now()) @db.Timestamp(6)
+  updated_at              DateTime?                      @default(now()) @updatedAt @db.Timestamp(6)
   expense_categories      expense_categories[]
   expenses                expenses[]
   company_categories      company_categories[]
