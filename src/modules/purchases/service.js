@@ -49,7 +49,10 @@ async function prepareLines(company_id, purchase_id, items) {
   const idsOf = (key) => [...new Set(items.map((i) => i?.[key]).filter(Boolean))];
   const [categories, products] = await Promise.all([
     prisma.purchase_categories.findMany({ where: { id: { in: idsOf('purchase_category_id') }, company_id } }),
-    prisma.products.findMany({ where: { id: { in: idsOf('product_id') }, company_id } }),
+    prisma.products.findMany({
+      where: { id: { in: idsOf('product_id') }, company_id },
+      include: { _count: { select: { product_variants: { where: { deleted_at: null } } } } },
+    }),
   ]);
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const productById = new Map(products.map((p) => [p.id, p]));
@@ -63,6 +66,11 @@ async function prepareLines(company_id, purchase_id, items) {
     } else {
       const product = productById.get(item?.product_id);
       if (!product) throw new PurchaseError(`items[${i}] needs a purchase_category_id or a product_id of this company`);
+      // A purchase line has no size, so it can't add to a product with
+      // sizes/colours without breaking its per-size totals.
+      if (product._count.product_variants) {
+        throw new PurchaseError(`${product.product_name} has sizes/colours: add its stock per size in Inventory`);
+      }
       source = { purchase_category_id: null, product_id: product.id, product_name: product.product_name };
     }
     if (!Number.isInteger(item.quantity) || item.quantity <= 0) throw new PurchaseError(`items[${i}].quantity must be a whole number above 0`);

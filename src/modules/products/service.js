@@ -130,6 +130,7 @@ async function getProducts(company_id, { page = 1, deleted = false, limit = 20, 
             { product_categories: { name: { contains: search, mode: 'insensitive' } } },
             { color: { contains: search, mode: 'insensitive' } },
             { design_pattern: { contains: search, mode: 'insensitive' } },
+            { product_variants: { some: { deleted_at: null, sku: { contains: search, mode: 'insensitive' } } } },
           ],
         }
       : {}),
@@ -167,6 +168,10 @@ async function updateProduct(id, company_id, data, actorId = null) {
     await assertValidUnit(rest.unit_id, company_id);
   }
 
+  if (stock_quantity !== undefined) {
+    const sized = await prisma.product_variants.count({ where: { product_id: id, deleted_at: null } });
+    if (sized) throw new ProductError('This product has sizes/colours: set stock per size in Inventory');
+  }
   if (Object.keys(rest).length) await productRepository.update(id, rest);
   if (stock_quantity !== undefined) {
     await prisma.$transaction((tx) =>

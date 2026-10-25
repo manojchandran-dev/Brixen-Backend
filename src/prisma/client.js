@@ -10,6 +10,7 @@ const SOFT_DELETE_MODELS = new Set([
   'employees',
   'customers',
   'products',
+  'product_variants',
   'product_categories',
   'purchase_categories',
   'company_categories',

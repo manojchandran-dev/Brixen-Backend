@@ -36,6 +36,7 @@ const STEPS = [
   ['sale_items', {}],
   ['sales', {}],
   ['expenses', {}],
+  ['product_variants', {}],
   ['expense_categories', {}],
   ['products', {}],
   ['product_categories', {}],

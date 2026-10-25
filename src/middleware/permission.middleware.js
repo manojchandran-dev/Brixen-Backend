@@ -9,7 +9,8 @@ const ACTION_BY_METHOD = { POST: 'create', PUT: 'edit', PATCH: 'edit', DELETE: '
 // superadmin is exempt, and reads are left to company scoping.
 //
 //   POST -> create, PUT/PATCH -> edit, DELETE and .../restore -> delete.
-//   .../stepN is part of a create wizard, so create OR edit allows it.
+//   .../stepN and .../variants are part of a create wizard, so create OR
+//   edit allows them.
 //
 // A module needs a saved row with view + the action. Without a row it's
 // allowed only if the module is always_visible (Support, Chatbot) -- the same
@@ -21,7 +22,7 @@ function requirePermission(moduleName) {
     if (!method) return next();
 
     const path = req.path.replace(/\/+$/, '');
-    const actions = /\/restore$/.test(path) ? ['delete'] : /\/step\d+$/.test(path) ? ['create', 'edit'] : [method];
+    const actions = /\/restore$/.test(path) ? ['delete'] : /\/(step\d+|variants)$/.test(path) ? ['create', 'edit'] : [method];
 
     const module = await prisma.modules.findFirst({ where: { name: moduleName } });
     const row =

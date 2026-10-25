@@ -8,6 +8,7 @@ const companyRepository = require('../companies/repository');
 const productRepository = require('../products/repository');
 const { generateSaleId } = require('../../utils/saleId');
 const { generateSaleItemId } = require('../../utils/saleItemId');
+const { variantLabel } = require('../products/variants');
 
 const MAX_ID_ATTEMPTS = 5;
 
@@ -229,10 +230,24 @@ async function updateSaleStep2(id, company_id, data, actorId = null) {
     await assertValidProduct(item.product_id, company_id);
   }
   const products = await productRepository.findManyByIdsAndCompany([...new Set(items.map((i) => i.product_id))], company_id);
-  const currentCost = new Map(products.map((p) => [p.id, p.cost_price]));
+  const productCost = new Map(products.map((p) => [p.id, p.cost_price]));
+  // A product's live sizes/colours, to check each line's variant.
+  const variantsOf = new Map(products.map((p) => [p.id, p.product_variants ?? []]));
+  const lineKey = (l) => `${l.product_id}|${l.variant_id ?? ''}`;
 
   let subtotal = 0;
-  const preparedItems = items.map((item) => {
+  const preparedItems = items.map((item, i) => {
+    // A product with sizes/colours needs one picked (or has just one).
+    const variants = variantsOf.get(item.product_id) ?? [];
+    let variant = null;
+    if (item.variant_id) {
+      variant = variants.find((v) => v.id === item.variant_id);
+      if (!variant) throw new SaleError(`items[${i}].variant_id is not a size/colour of ${item.product_name}`);
+    } else if (variants.length === 1) {
+      variant = variants[0];
+    } else if (variants.length > 1) {
+      throw new SaleError(`Pick a size/colour for ${item.product_name}`);
+    }
     const price = Number(item.price);
     const quantity = Number(item.quantity);
     const line_total = round2(price * quantity);
@@ -243,12 +258,21 @@ async function updateSaleStep2(id, company_id, data, actorId = null) {
       company_id,
       product_id: item.product_id,
       product_name: item.product_name,
+      variant_id: variant?.id ?? null,
+      variant_label: variant ? variantLabel(variant) : null,
       price_type: item.price_type,
       price,
       quantity,
       line_total,
     };
   });
+  // Cost when sold: the variant's own cost, else the product's.
+  const currentCost = new Map(
+    preparedItems.map((l) => {
+      const v = (variantsOf.get(l.product_id) ?? []).find((x) => x.id === l.variant_id);
+      return [lineKey(l), v?.cost_price ?? productCost.get(l.product_id) ?? null];
+    })
+  );
 
   subtotal = round2(subtotal);
   // A secondary bill never carries GST.
@@ -261,9 +285,10 @@ async function updateSaleStep2(id, company_id, data, actorId = null) {
     async (tx) => {
       const sale = await tx.sales.findUnique({ where: { id }, select: { payment_status: true } });
       const oldItems = await tx.sale_items.findMany({ where: { sale_id: id } });
-      const keptCost = new Map(oldItems.map((i) => [i.product_id, i.cost_price]));
+      const keptCost = new Map(oldItems.map((i) => [lineKey(i), i.cost_price]));
       for (const item of preparedItems) {
-        item.cost_price = keptCost.has(item.product_id) ? keptCost.get(item.product_id) : currentCost.get(item.product_id) ?? null;
+        const key = lineKey(item);
+        item.cost_price = keptCost.has(key) ? keptCost.get(key) : currentCost.get(key) ?? null;
       }
 
       await saleStock(tx, oldItems, preparedItems, { company_id, reference_id: id, created_by: actorId });

@@ -32,6 +32,7 @@ const scoped = (id) => [
   ['sale_items', { OR: [{ company_id: id }, { sales: { company_id: id } }] }],
   ['sales', { company_id: id }],
   ['expenses', { company_id: id }],
+  ['product_variants', { company_id: id }],
   ['expense_categories', { company_id: id }],
   ['products', { company_id: id }],
   ['product_categories', { company_id: id }],

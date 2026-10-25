@@ -1,4 +1,5 @@
 const productService = require('./service');
+const { replaceVariants, VariantError } = require('./variants');
 const { success, error } = require('../../core/responses/apiResponse');
 const { parseCompanyId, resolveListScope } = require('../../utils/companyScope');
 
@@ -166,7 +167,26 @@ async function deleteProduct(req, res) {
   return res.status(204).send();
 }
 
+// PUT /products/:id/variants — the product's sizes/colours (see variants.js).
+async function updateVariants(req, res) {
+  const { id } = req.params;
+  const company_id = parseCompanyId(req.query.company_id ?? req.body.company_id);
+  if (!company_id) {
+    return error(res, 'company_id is required and must be a positive integer', 400);
+  }
+  if (!isValidId(id)) {
+    return error(res, 'Invalid product id', 400);
+  }
+  try {
+    return success(res, await replaceVariants(id, company_id, req.body, req.auth?.userId));
+  } catch (err) {
+    if (err instanceof VariantError) return error(res, err.message, err.status);
+    throw err;
+  }
+}
+
 module.exports = {
+  updateVariants,
   createProduct,
   getProducts,
   getProductById,

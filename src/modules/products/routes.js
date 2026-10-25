@@ -22,6 +22,7 @@ router.put('/:id', validateUpdateProduct, asyncHandler(productController.updateP
 router.put('/:id/step2', validateProductStep2, asyncHandler(productController.updateProductStep2));
 router.put('/:id/step3', validateProductStep3, asyncHandler(productController.updateProductStep3));
 router.put('/:id/step4', validateProductStep4, asyncHandler(productController.updateProductStep4));
+router.put('/:id/variants', asyncHandler(productController.updateVariants));
 router.delete('/:id', asyncHandler(productController.deleteProduct));
 router.post('/:id/restore', asyncHandler(restoreHandler('products', { label: 'product' })));
 

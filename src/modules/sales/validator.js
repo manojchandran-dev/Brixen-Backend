@@ -109,6 +109,11 @@ function validateSaleItems(body, errors) {
       errors.push(`items[${index}].product_id is required`);
     }
 
+    // The size/colour sold; needed when the product has more than one.
+    if (item.variant_id !== undefined && item.variant_id !== null && typeof item.variant_id !== 'string') {
+      errors.push(`items[${index}].variant_id must be a string`);
+    }
+
     if (typeof item.product_name !== 'string' || !item.product_name.trim()) {
       errors.push(`items[${index}].product_name is required`);
     }

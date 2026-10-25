@@ -1,11 +1,12 @@
 const prisma = require('../../prisma/client');
+const { VARIANTS_INCLUDE } = require('./variants');
 
 function create(data) {
   return prisma.products.create({ data });
 }
 
 function findMany(params) {
-  return prisma.products.findMany(params);
+  return prisma.products.findMany({ include: VARIANTS_INCLUDE, ...params });
 }
 
 function count(where = {}) {
@@ -13,11 +14,11 @@ function count(where = {}) {
 }
 
 function findById(id) {
-  return prisma.products.findUnique({ where: { id } });
+  return prisma.products.findUnique({ where: { id }, include: VARIANTS_INCLUDE });
 }
 
 function findByIdAndCompany(id, company_id) {
-  return prisma.products.findFirst({ where: { id, company_id } });
+  return prisma.products.findFirst({ where: { id, company_id }, include: VARIANTS_INCLUDE });
 }
 
 function update(id, data) {
