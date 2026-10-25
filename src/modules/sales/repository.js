@@ -1,20 +1,24 @@
 const prisma = require('../../prisma/client');
 
+// The customer's name rides along with every sale. Relation includes skip the
+// soft-delete filter, so a sale still names a customer deleted since.
+const CUSTOMER = { customers: { select: { name: true, shop_name: true } } };
+
 const sales = {
   create(data) {
     return prisma.sales.create({ data });
   },
   findMany(params) {
-    return prisma.sales.findMany(params);
+    return prisma.sales.findMany({ include: CUSTOMER, ...params });
   },
   count(where = {}) {
     return prisma.sales.count({ where });
   },
   findById(id) {
-    return prisma.sales.findUnique({ where: { id }, include: { sale_items: true } });
+    return prisma.sales.findUnique({ where: { id }, include: { sale_items: true, ...CUSTOMER } });
   },
   findByIdAndCompany(id, company_id) {
-    return prisma.sales.findFirst({ where: { id, company_id }, include: { sale_items: true } });
+    return prisma.sales.findFirst({ where: { id, company_id }, include: { sale_items: true, ...CUSTOMER } });
   },
   update(id, data) {
     return prisma.sales.update({
