@@ -68,9 +68,11 @@ async function prepareLines(company_id, purchase_id, items) {
     if (!Number.isInteger(item.quantity) || item.quantity <= 0) throw new PurchaseError(`items[${i}].quantity must be a whole number above 0`);
     const unit_cost = Number(item.unit_cost);
     if (item.unit_cost === undefined || Number.isNaN(unit_cost) || unit_cost < 0) throw new PurchaseError(`items[${i}].unit_cost must be 0 or more`);
+    const unit = item.unit == null || item.unit === '' ? null : item.unit;
+    if (unit !== null && (typeof unit !== 'string' || unit.trim().length > 20)) throw new PurchaseError(`items[${i}].unit must be text of up to 20 characters`);
     const line_total = round2(unit_cost * item.quantity);
     subtotal += line_total;
-    return { id: prefixedId('PURI'), purchase_id, company_id, ...source, quantity: item.quantity, unit_cost, line_total };
+    return { id: prefixedId('PURI'), purchase_id, company_id, ...source, quantity: item.quantity, unit: unit?.trim() ?? null, unit_cost, line_total };
   });
   return { lines, subtotal: round2(subtotal) };
 }
