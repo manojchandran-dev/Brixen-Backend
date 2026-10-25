@@ -2,9 +2,13 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Neon: DATABASE_URL is the pooled connection (host has "-pooler") the app
+// uses; DIRECT_URL is the direct one Prisma CLI needs for schema changes
+// (db push / migrate). Both must point at the same database.
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model companies {
