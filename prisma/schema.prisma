@@ -43,6 +43,7 @@ model companies {
   expenses                expenses[]
   company_categories      company_categories[]
   product_categories      product_categories[]
+  purchase_categories     purchase_categories[]
   units                   units[]
   products                products[]
   employees               employees[]
@@ -150,6 +151,22 @@ model product_categories {
   created_at  DateTime?  @default(now()) @db.Timestamp(6)
   updated_at  DateTime?  @default(now()) @db.Timestamp(6)
   products    products[]
+}
+
+// What a company buys to make its products (Elastic, Thread, Buttons), as
+// opposed to product_categories, which group what it sells. Purchase bill
+// lines pick one of these.
+model purchase_categories {
+  id             String           @id @db.VarChar(16)
+  deleted_at     DateTime?        @db.Timestamp(6)
+  company_id     Int
+  companies      companies        @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  name           String           @db.VarChar(150)
+  description    String?
+  status         String?          @default("ACTIVE") @db.VarChar(20)
+  created_at     DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at     DateTime?        @default(now()) @db.Timestamp(6)
+  purchase_items purchase_items[]
 }
 
 model units {
@@ -270,6 +287,13 @@ model sales {
   payment_type   String?      @db.VarChar(30)
   payment_status String       @default("Pending") @db.VarChar(20)
   notes          String?
+  // GST = tax invoice; SECONDARY = bill without GST (tax is always 0).
+  // Fixed once the sale is created.
+  bill_type      String       @default("GST") @db.VarChar(10)
+  // Running number per company, bill type and financial year, set by the
+  // server: "C7G2627/0001" (GST), "C7S2627/0001" (secondary). It carries the
+  // company id, so it's unique across all companies. Null on older sales.
+  bill_no        String?      @unique @db.VarChar(30)
   created_at     DateTime?    @default(now()) @db.Timestamp(6)
   updated_at     DateTime?    @default(now()) @db.Timestamp(6)
   sale_items     sale_items[]
@@ -534,17 +558,22 @@ model purchases {
 }
 
 model purchase_items {
-  id           String    @id @db.VarChar(16)
-  purchase_id  String
-  purchases    purchases @relation(fields: [purchase_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  company_id   Int
-  product_id   String
-  products     products  @relation(fields: [product_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  product_name String    @db.VarChar(200)
-  quantity     Int
-  unit_cost    Decimal   @db.Decimal(12, 2)
-  line_total   Decimal   @db.Decimal(12, 2)
-  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  id                   String               @id @db.VarChar(16)
+  purchase_id          String
+  purchases            purchases            @relation(fields: [purchase_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_id           Int
+  // A line is either a purchase category (raw material, no stock) or, on
+  // older bills, a product (adds to its stock).
+  purchase_category_id String?
+  purchase_categories  purchase_categories? @relation(fields: [purchase_category_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  product_id           String?
+  products             products?            @relation(fields: [product_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  // The product's or purchase category's name when the line was saved.
+  product_name         String               @db.VarChar(200)
+  quantity             Int
+  unit_cost            Decimal              @db.Decimal(12, 2)
+  line_total           Decimal              @db.Decimal(12, 2)
+  created_at           DateTime?            @default(now()) @db.Timestamp(6)
 
   @@index([purchase_id])
 }

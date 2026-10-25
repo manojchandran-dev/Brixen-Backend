@@ -1,5 +1,6 @@
 const PAYMENT_TYPES = ['Cash', 'Card', 'UPI', 'Bank Transfer', 'Cheque', 'Other'];
 const PAYMENT_STATUSES = ['Pending', 'Paid', 'Partial'];
+const BILL_TYPES = ['GST', 'SECONDARY'];
 
 const OPTIONAL_STRING_FIELDS = ['invoice_type', 'bill_image_url', 'notes'];
 
@@ -83,6 +84,7 @@ function validateCreateSale(req, res, next) {
   validateDecimal(req.body, 'amount_paid', errors, { required: false });
   validateEnum(req.body, 'payment_type', PAYMENT_TYPES, errors);
   validateEnum(req.body, 'payment_status', PAYMENT_STATUSES, errors);
+  validateEnum(req.body, 'bill_type', BILL_TYPES, errors);
 
   if (errors.length) {
     return res.status(400).json({ success: false, errors });

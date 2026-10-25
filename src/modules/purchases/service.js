@@ -3,7 +3,7 @@ const prefixedId = require('../../utils/prefixedId');
 const { applyStock, netChanges } = require('../inventory/stock');
 const { exact, choice, dateRange, compact } = require('../../utils/listFilters');
 
-// Supplier bills. Saving a purchase's lines adds their quantities to stock
+// Supplier bills. Saving a purchase's product lines adds their quantities to stock
 // (through the ledger); editing moves stock by the net change; deleting takes
 // it back out. Payment fields mirror sales.
 
@@ -41,25 +41,42 @@ function validHeader(body, { creating }) {
   return out;
 }
 
-// Lines -> prepared rows + subtotal. Every product must belong to the company.
+// Lines -> prepared rows + subtotal. Each line names either a purchase
+// category (a raw material such as Elastic; no stock) or a product (adds to
+// its stock). Either must belong to the company.
 async function prepareLines(company_id, purchase_id, items) {
   if (!Array.isArray(items)) throw new PurchaseError('items must be an array');
-  const ids = [...new Set(items.map((i) => i?.product_id))];
-  const products = await prisma.products.findMany({ where: { id: { in: ids.filter(Boolean) }, company_id } });
-  const byId = new Map(products.map((p) => [p.id, p]));
+  const idsOf = (key) => [...new Set(items.map((i) => i?.[key]).filter(Boolean))];
+  const [categories, products] = await Promise.all([
+    prisma.purchase_categories.findMany({ where: { id: { in: idsOf('purchase_category_id') }, company_id } }),
+    prisma.products.findMany({ where: { id: { in: idsOf('product_id') }, company_id } }),
+  ]);
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
+  const productById = new Map(products.map((p) => [p.id, p]));
   let subtotal = 0;
   const lines = items.map((item, i) => {
-    const product = byId.get(item?.product_id);
-    if (!product) throw new PurchaseError(`items[${i}].product_id is not a product of this company`);
+    let source;
+    if (item?.purchase_category_id) {
+      const category = categoryById.get(item.purchase_category_id);
+      if (!category) throw new PurchaseError(`items[${i}].purchase_category_id is not a purchase category of this company`);
+      source = { purchase_category_id: category.id, product_id: null, product_name: category.name };
+    } else {
+      const product = productById.get(item?.product_id);
+      if (!product) throw new PurchaseError(`items[${i}] needs a purchase_category_id or a product_id of this company`);
+      source = { purchase_category_id: null, product_id: product.id, product_name: product.product_name };
+    }
     if (!Number.isInteger(item.quantity) || item.quantity <= 0) throw new PurchaseError(`items[${i}].quantity must be a whole number above 0`);
     const unit_cost = Number(item.unit_cost);
     if (item.unit_cost === undefined || Number.isNaN(unit_cost) || unit_cost < 0) throw new PurchaseError(`items[${i}].unit_cost must be 0 or more`);
     const line_total = round2(unit_cost * item.quantity);
     subtotal += line_total;
-    return { id: prefixedId('PURI'), purchase_id, company_id, product_id: product.id, product_name: product.product_name, quantity: item.quantity, unit_cost, line_total };
+    return { id: prefixedId('PURI'), purchase_id, company_id, ...source, quantity: item.quantity, unit_cost, line_total };
   });
   return { lines, subtotal: round2(subtotal) };
 }
+
+// Only product lines move stock; purchase-category lines are just recorded.
+const stockLines = (lines) => lines.filter((l) => l.product_id);
 
 function totals(subtotal, taxPct) {
   const tax_amount = round2((subtotal * taxPct) / 100);
@@ -95,7 +112,7 @@ async function create(company_id, body, actorId) {
         data: { id, company_id, ...header, payment_status: status, ...t, amount_paid: amountPaid(body, status, t.total_amount, 0), created_by: actorId },
       });
       if (lines.length) await tx.purchase_items.createMany({ data: lines });
-      await applyStock(tx, netChanges([], lines, +1), { company_id, type: 'purchase', reference_id: id, created_by: actorId });
+      await applyStock(tx, netChanges([], stockLines(lines), +1), { company_id, type: 'purchase', reference_id: id, created_by: actorId });
     },
     { timeout: 30000, maxWait: 10000 }
   );
@@ -114,6 +131,7 @@ async function list(company_id, q) {
       bill_date: dateRange(q.from, q.to),
     }),
     ...(q.product_id ? { purchase_items: { some: { product_id: q.product_id } } } : {}),
+    ...(q.purchase_category_id ? { purchase_items: { some: { purchase_category_id: q.purchase_category_id } } } : {}),
     ...(search
       ? {
           OR: [
@@ -151,7 +169,7 @@ async function update(id, company_id, body, actorId) {
   await prisma.$transaction(
     async (tx) => {
       if (newLines) {
-        await applyStock(tx, netChanges(current.purchase_items, newLines, +1), { company_id, type: 'purchase', reference_id: id, created_by: actorId });
+        await applyStock(tx, netChanges(stockLines(current.purchase_items), stockLines(newLines), +1), { company_id, type: 'purchase', reference_id: id, created_by: actorId });
         await tx.purchase_items.deleteMany({ where: { purchase_id: id } });
         if (newLines.length) await tx.purchase_items.createMany({ data: newLines });
       }
@@ -170,7 +188,7 @@ async function remove(id, company_id, actorId) {
   const current = await get(id, company_id);
   await prisma.$transaction(
     async (tx) => {
-      await applyStock(tx, netChanges(current.purchase_items, [], +1), { company_id, type: 'purchase', reference_id: id, created_by: actorId, note: 'Purchase deleted' });
+      await applyStock(tx, netChanges(stockLines(current.purchase_items), [], +1), { company_id, type: 'purchase', reference_id: id, created_by: actorId, note: 'Purchase deleted' });
       await tx.purchases.delete({ where: { id } });
     },
     { timeout: 30000, maxWait: 10000 }

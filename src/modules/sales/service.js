@@ -54,13 +54,42 @@ function round2(value) {
   return Number(value.toFixed(2));
 }
 
+const BILL_TYPES = ['GST', 'SECONDARY'];
+const BILL_LETTER = { GST: 'G', SECONDARY: 'S' };
+
+// Indian financial year (April-March) of a date as four digits: "2627" for
+// 2026-27.
+function financialYear(date) {
+  const d = new Date(date ?? Date.now());
+  const start = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+  const yy = (y) => String(y % 100).padStart(2, '0');
+  return `${yy(start)}${yy(start + 1)}`;
+}
+
+// Next number in the company's series for this bill type and year, e.g.
+// "C7G2627/0001" (company 7, GST, 2026-27) or "C7S2627/0001" (secondary).
+// The company id makes it unique across all companies and keeps it within
+// GST's 16-character limit. A clash with a bill saved at the same moment is
+// caught by the unique index and retried by the caller.
+async function nextBillNo(company_id, bill_type, bill_date) {
+  const prefix = `C${company_id}${BILL_LETTER[bill_type]}${financialYear(bill_date)}/`;
+  const rows = await prisma.sales.findMany({
+    where: { company_id, bill_no: { startsWith: prefix } },
+    select: { bill_no: true },
+  });
+  const last = rows.reduce((n, r) => Math.max(n, parseInt(r.bill_no.slice(prefix.length), 10) || 0), 0);
+  return prefix + String(last + 1).padStart(4, '0');
+}
+
 async function createSale(company_id, data) {
   await assertValidCompany(company_id);
   await assertValidCustomer(data.customer_id, company_id);
 
+  const bill_type = data.bill_type ?? 'GST';
+  const secondary = bill_type === 'SECONDARY';
   const subtotal = data.subtotal ?? 0;
-  const tax_percentage = data.tax_percentage ?? 0;
-  const tax_amount = data.tax_amount ?? 0;
+  const tax_percentage = secondary ? 0 : data.tax_percentage ?? 0;
+  const tax_amount = secondary ? 0 : data.tax_amount ?? 0;
   const total_amount = resolveTotal(subtotal, tax_amount, data.total_amount);
 
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt += 1) {
@@ -68,6 +97,8 @@ async function createSale(company_id, data) {
       return await saleRepository.create({
         id: generateSaleId(),
         company_id,
+        bill_type,
+        bill_no: await nextBillNo(company_id, bill_type, data.bill_date),
         bill_date: data.bill_date,
         customer_id: data.customer_id,
         invoice_type: data.invoice_type,
@@ -83,6 +114,7 @@ async function createSale(company_id, data) {
         notes: data.notes,
       });
     } catch (err) {
+      // A clash on the id or the bill number: try again with fresh ones.
       const isDuplicateId = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
       if (!isDuplicateId) {
         throw err;
@@ -107,6 +139,7 @@ async function getSales(company_id, { page = 1, limit = 20, search = '', custome
       payment_status: choice('payment_status', filters.payment_status, PAYMENT_STATUSES),
       payment_type: exact(filters.payment_type),
       invoice_type: exact(filters.invoice_type),
+      bill_type: choice('bill_type', filters.bill_type, BILL_TYPES),
       bill_date: dateRange(filters.from, filters.to),
     }),
     ...(search
@@ -115,6 +148,7 @@ async function getSales(company_id, { page = 1, limit = 20, search = '', custome
             { customers: { name: { contains: search, mode: 'insensitive' } } },
             { customers: { shop_name: { contains: search, mode: 'insensitive' } } },
             { invoice_type: { contains: search, mode: 'insensitive' } },
+            { bill_no: { contains: search, mode: 'insensitive' } },
             { payment_status: { contains: search, mode: 'insensitive' } },
             { notes: { contains: search, mode: 'insensitive' } },
             { payment_type: { contains: search, mode: 'insensitive' } },
@@ -152,7 +186,8 @@ async function getSaleById(id, company_id) {
 }
 
 async function updateSale(id, company_id, data) {
-  const { id: _id, company_id: _companyId, ...rest } = data;
+  // The bill type and number are fixed once the sale exists.
+  const { id: _id, company_id: _companyId, bill_type: _billType, bill_no: _billNo, ...rest } = data;
 
   if (rest.customer_id !== undefined) {
     await assertValidCustomer(rest.customer_id, company_id);
@@ -216,7 +251,9 @@ async function updateSaleStep2(id, company_id, data, actorId = null) {
   });
 
   subtotal = round2(subtotal);
-  const taxPct = tax_percentage !== undefined && tax_percentage !== null ? Number(tax_percentage) : 0;
+  // A secondary bill never carries GST.
+  const { bill_type } = await prisma.sales.findUnique({ where: { id }, select: { bill_type: true } });
+  const taxPct = bill_type !== 'SECONDARY' && tax_percentage !== undefined && tax_percentage !== null ? Number(tax_percentage) : 0;
   const tax_amount = round2((subtotal * taxPct) / 100);
   const total_amount = round2(subtotal + tax_amount);
 

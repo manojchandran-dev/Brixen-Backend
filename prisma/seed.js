@@ -25,6 +25,7 @@ const DEFAULT_MODULES = [
       { name: 'Expense Category', description: 'Spending types', visible_to_superadmin: false },
       { name: 'Units', description: 'Measurement units', visible_to_superadmin: false },
       { name: 'Product Category', description: 'Garments categories', visible_to_superadmin: false },
+      { name: 'Purchase Category', description: 'Raw materials bought', visible_to_superadmin: false },
     ],
   },
 ];
