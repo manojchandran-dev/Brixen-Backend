@@ -32,9 +32,10 @@ function deleteById(id) {
   return prisma.products.delete({ where: { id } });
 }
 
-// Several products of one company at once (e.g. a sale's lines).
+// Several products of one company at once (e.g. a sale's lines), with their
+// sizes/colours — a sale line's variant is checked against them.
 function findManyByIdsAndCompany(ids, company_id) {
-  return prisma.products.findMany({ where: { id: { in: ids }, company_id } });
+  return prisma.products.findMany({ where: { id: { in: ids }, company_id }, include: VARIANTS_INCLUDE });
 }
 
 module.exports = {
