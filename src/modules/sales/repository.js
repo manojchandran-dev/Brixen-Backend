@@ -8,8 +8,13 @@ const sales = {
   create(data) {
     return prisma.sales.create({ data });
   },
+  // The list carries each sale's lines too: the app's product, size and
+  // customer reports are worked out from them.
   findMany(params) {
-    return prisma.sales.findMany({ include: CUSTOMER, ...params });
+    return prisma.sales.findMany({
+      include: { ...CUSTOMER, sale_items: { orderBy: { created_at: 'asc' } } },
+      ...params,
+    });
   },
   count(where = {}) {
     return prisma.sales.count({ where });
