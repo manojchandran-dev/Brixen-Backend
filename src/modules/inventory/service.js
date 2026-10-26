@@ -37,7 +37,7 @@ async function overview(company_id, q) {
   const base = Prisma.sql`p.deleted_at IS NULL
     ${company_id ? Prisma.sql`AND p.company_id = ${company_id}` : Prisma.empty}
     ${q.category_id ? Prisma.sql`AND p.category_id = ${q.category_id}` : Prisma.empty}
-    ${like ? Prisma.sql`AND (p.product_name ILIKE ${like} OR p.id ILIKE ${like} OR c.name ILIKE ${like} OR v.sku ILIKE ${like} OR v.size ILIKE ${like} OR v.color ILIKE ${like})` : Prisma.empty}`;
+    ${like ? Prisma.sql`AND (p.product_name ILIKE ${like} OR p.id ILIKE ${like} OR p.product_code ILIKE ${like} OR c.name ILIKE ${like} OR v.sku ILIKE ${like} OR v.size ILIKE ${like} OR v.color ILIKE ${like})` : Prisma.empty}`;
   const where = q.stock_status ? Prisma.sql`${base} AND ${STATUS_SQL} = ${q.stock_status}` : base;
   const from = Prisma.sql`FROM products p
     LEFT JOIN product_variants v ON v.product_id = p.id AND v.deleted_at IS NULL
@@ -47,7 +47,7 @@ async function overview(company_id, q) {
   const [items, [summary]] = await Promise.all([
     prisma.$queryRaw`
       SELECT p.id, v.id AS variant_id, coalesce(v.size, p.size) AS size,
-             coalesce(v.color, p.color) AS color, v.sku,
+             coalesce(v.color, p.color) AS color, coalesce(v.sku, p.product_code) AS sku,
              p.product_name, p.category_id, c.name AS category_name, u.unit,
              ${QTY} AS stock_quantity, p.low_stock_threshold, ${COST} AS cost_price,
              round(greatest(${QTY}, 0) * coalesce(${COST}, 0), 2)::float AS stock_value,

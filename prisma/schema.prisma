@@ -195,6 +195,10 @@ model products {
   company_id          Int
   companies           companies           @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   product_name        String              @db.VarChar(200)
+  // Readable code from the company and name, e.g. "C53-BILLASHORTS"; set by
+  // the server when the product is created and never changed after. Each
+  // size/colour's sku builds on it. See src/utils/productCode.js.
+  product_code        String?             @db.VarChar(40)
   category_id         String?
   product_categories  product_categories? @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   gender              String              @db.VarChar(20)
@@ -220,6 +224,8 @@ model products {
   purchase_items      purchase_items[]
   stock_movements     stock_movements[]
   product_variants    product_variants[]
+
+  @@unique([company_id, product_code])
 }
 
 // A size/colour of a product ("M / Blue"), with its own code, prices and
@@ -234,6 +240,9 @@ model product_variants {
   company_id      Int
   size            String?           @db.VarChar(50)
   color           String?           @db.VarChar(50)
+  // The size/colour's code, e.g. "C53-BILLASHORTS-S-BLUE": typed in, or
+  // made by the server from the product code, size and colour when left
+  // blank. Unique within the company.
   sku             String?           @db.VarChar(60)
   // Empty = use the product's price.
   cost_price      Decimal?          @db.Decimal(12, 2)
@@ -246,6 +255,7 @@ model product_variants {
   stock_movements stock_movements[]
 
   @@index([product_id])
+  @@index([company_id, sku])
 }
 
 model employees {

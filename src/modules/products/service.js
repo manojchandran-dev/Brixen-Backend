@@ -7,6 +7,7 @@ const productCategoryRepository = require('../masters/productCategories/reposito
 const unitRepository = require('../masters/units/repository');
 const companyRepository = require('../companies/repository');
 const { generateProductId } = require('../../utils/productId');
+const { newProductCode } = require('../../utils/productCode');
 
 const MAX_ID_ATTEMPTS = 5;
 
@@ -79,6 +80,9 @@ async function createProduct(company_id, data, actorId = null) {
       const product = await productRepository.create({
         id: generateProductId(),
         company_id,
+        // A clash with a product saved at the same moment hits the unique
+        // index and is retried with the next free code.
+        product_code: await newProductCode(prisma, company_id, rest.product_name),
         product_name: rest.product_name,
         category_id: rest.category_id,
         gender: rest.gender,
@@ -127,6 +131,7 @@ async function getProducts(company_id, { page = 1, deleted = false, limit = 20, 
           OR: [
             { product_name: { contains: search, mode: 'insensitive' } },
             { id: { contains: search, mode: 'insensitive' } },
+            { product_code: { contains: search, mode: 'insensitive' } },
             { product_categories: { name: { contains: search, mode: 'insensitive' } } },
             { color: { contains: search, mode: 'insensitive' } },
             { design_pattern: { contains: search, mode: 'insensitive' } },
@@ -159,7 +164,8 @@ async function getProductById(id, company_id) {
 async function updateProduct(id, company_id, data, actorId = null) {
   // stock_quantity is not written directly: setting it records a 'correction'
   // in the stock ledger (see inventory/stock.js).
-  const { id: _id, onboarding_status, company_id: _companyId, stock_quantity, ...rest } = data;
+  // The product code is fixed once given (see utils/productCode.js).
+  const { id: _id, onboarding_status, company_id: _companyId, stock_quantity, product_code: _code, ...rest } = data;
 
   if (rest.category_id !== undefined) {
     await assertValidCategory(rest.category_id, company_id);

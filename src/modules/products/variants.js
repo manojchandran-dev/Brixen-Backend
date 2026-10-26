@@ -1,6 +1,7 @@
 const prisma = require('../../prisma/client');
 const prefixedId = require('../../utils/prefixedId');
 const { applyStock, setStock } = require('../inventory/stock');
+const { newProductCode, newVariantSku } = require('../../utils/productCode');
 
 // A product's sizes/colours ("variants"), each with its own code, prices
 // and stock. See product_variants in schema.prisma.
@@ -83,6 +84,22 @@ async function replaceVariants(product_id, company_id, body, actorId = null) {
   const keep = new Set(rows.filter((r) => r.id).map((r) => r.id));
   const movement = { company_id, created_by: actorId };
 
+  // A typed-in code must not be another live size's, on this product or
+  // another (sizes removed in this same save don't count).
+  const typed = new Set();
+  for (const r of rows) {
+    if (!r.sku) continue;
+    const other = await prisma.product_variants.findFirst({
+      where: { company_id, sku: r.sku, ...(r.id ? { id: { not: r.id } } : {}) },
+      select: { id: true, product_id: true },
+    });
+    const freed = other && other.product_id === product_id && !keep.has(other.id);
+    if ((other && !freed) || typed.has(r.sku)) {
+      throw new VariantError(`Code "${r.sku}" is already used by another size`);
+    }
+    typed.add(r.sku);
+  }
+
   await prisma.$transaction(
     async (tx) => {
       if (!existing.size && rows.length && product.stock_quantity !== 0) {
@@ -92,6 +109,19 @@ async function replaceVariants(product_id, company_id, body, actorId = null) {
         if (keep.has(v.id)) continue;
         await setStock(tx, { product_id, variant_id: v.id, quantity: 0, ...movement, reason: 'correction', note: `Size ${variantLabel(v)} removed` });
         await tx.product_variants.update({ where: { id: v.id }, data: { deleted_at: new Date() } });
+      }
+      // Older products get their code the first time their sizes are saved.
+      let code = product.product_code;
+      if (!code && rows.length) {
+        code = await newProductCode(tx, company_id, product.product_name);
+        await tx.products.update({ where: { id: product_id }, data: { product_code: code } });
+      }
+      // Sizes left without a code get one: product code + size + colour.
+      for (const r of rows) {
+        if (!r.sku) {
+          r.sku = await newVariantSku(tx, company_id, code, r, typed, r.id);
+          typed.add(r.sku);
+        }
       }
       for (const r of rows) {
         const { id, opening_stock, ...fields } = r;
