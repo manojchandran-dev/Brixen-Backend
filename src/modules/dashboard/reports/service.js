@@ -83,7 +83,8 @@ async function getReportSummary({
 
   const [sales, expenses] = await Promise.all([
     prisma.sales.findMany({
-      where: { ...(company_id ? { company_id } : {}), bill_date: { gte: from, lte: to } },
+      // A GST bill with a secondary bill isn't counted in sales.
+      where: { ...(company_id ? { company_id } : {}), bill_date: { gte: from, lte: to }, has_secondary_bill: false },
       include: { customers: { select: { id: true, name: true } } },
     }),
     prisma.expenses.findMany({

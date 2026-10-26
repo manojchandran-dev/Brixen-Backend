@@ -100,6 +100,7 @@ async function createSale(company_id, data) {
         company_id,
         bill_type,
         bill_no: await nextBillNo(company_id, bill_type, data.bill_date),
+        has_secondary_bill: !secondary && data.has_secondary_bill === true,
         bill_date: data.bill_date,
         customer_id: data.customer_id,
         invoice_type: data.invoice_type,
@@ -192,6 +193,12 @@ async function updateSale(id, company_id, data) {
 
   if (rest.customer_id !== undefined) {
     await assertValidCustomer(rest.customer_id, company_id);
+  }
+
+  // Only a GST bill can also have a secondary bill.
+  if (rest.has_secondary_bill === true) {
+    const existing = await saleRepository.findByIdAndCompany(id, company_id);
+    if (existing?.bill_type === 'SECONDARY') rest.has_secondary_bill = false;
   }
 
   if (rest.subtotal !== undefined || rest.tax_amount !== undefined) {

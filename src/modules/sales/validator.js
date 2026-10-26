@@ -64,6 +64,12 @@ function validateEnum(body, field, allowed, errors) {
   body[field] = match;
 }
 
+function validateOptionalBoolean(body, field, errors) {
+  if (body[field] !== undefined && body[field] !== null && typeof body[field] !== 'boolean') {
+    errors.push(`${field} must be true or false`);
+  }
+}
+
 function validateCompanyId(body, errors) {
   if (body.company_id === undefined || body.company_id === null || !/^\d+$/.test(String(body.company_id))) {
     errors.push('company_id is required and must be a positive integer');
@@ -85,6 +91,7 @@ function validateCreateSale(req, res, next) {
   validateEnum(req.body, 'payment_type', PAYMENT_TYPES, errors);
   validateEnum(req.body, 'payment_status', PAYMENT_STATUSES, errors);
   validateEnum(req.body, 'bill_type', BILL_TYPES, errors);
+  validateOptionalBoolean(req.body, 'has_secondary_bill', errors);
 
   if (errors.length) {
     return res.status(400).json({ success: false, errors });
@@ -170,6 +177,7 @@ function validateUpdateSale(req, res, next) {
   validateDecimal(req.body, 'amount_paid', errors, { required: false });
   validateEnum(req.body, 'payment_type', PAYMENT_TYPES, errors);
   validateEnum(req.body, 'payment_status', PAYMENT_STATUSES, errors);
+  validateOptionalBoolean(req.body, 'has_secondary_bill', errors);
 
   if (errors.length) {
     return res.status(400).json({ success: false, errors });

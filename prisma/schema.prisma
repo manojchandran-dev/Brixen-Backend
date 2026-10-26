@@ -321,6 +321,9 @@ model sales {
   // GST = tax invoice; SECONDARY = bill without GST (tax is always 0).
   // Fixed once the sale is created.
   bill_type      String       @default("GST") @db.VarChar(10)
+  // A GST bill that can also be printed as a secondary bill (no GST).
+  // Always false on a secondary bill.
+  has_secondary_bill Boolean  @default(false)
   // Running number per company, bill type and financial year, set by the
   // server: "C7G2627/0001" (GST), "C7S2627/0001" (secondary). It carries the
   // company id, so it's unique across all companies. Null on older sales.
