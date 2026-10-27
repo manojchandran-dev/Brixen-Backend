@@ -4,7 +4,9 @@ const prisma = require('../../prisma/client');
 // (email; deleted_at set = access removed), for the app's form and list.
 const INCLUDE = {
   departments: { select: { id: true, name: true, status: true } },
-  users: { select: { email: true, deleted_at: true } },
+  users: {
+    select: { email: true, deleted_at: true, must_change_password: true, setup_email_sent_at: true, setup_email_error: true },
+  },
 };
 
 function create(data) {

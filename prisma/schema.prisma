@@ -71,6 +71,7 @@ model companies {
   departments             departments[]
   work_types              work_types[]
   attendance              attendance[]
+  employee_permissions    employee_permissions[]
 }
 
 model users {
@@ -87,6 +88,12 @@ model users {
   // Set by the company admin from the employee's record.
   employee_id     Int?              @unique
   employees       employees?        @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  // Signed in with an emailed temporary password: a new one must be set
+  // before anything else (see session.middleware).
+  must_change_password Boolean      @default(false)
+  // The employee setup email: when it last went out, or why it failed.
+  setup_email_sent_at  DateTime?    @db.Timestamp(6)
+  setup_email_error    String?
   created_at      DateTime          @default(now()) @db.Timestamp(6)
   updated_at      DateTime          @default(now()) @db.Timestamp(6)
   refresh_tokens  refresh_tokens[]
@@ -310,6 +317,7 @@ model employees {
   created_at              DateTime?   @default(now()) @db.Timestamp(6)
   users                   users?
   attendance              attendance[]
+  employee_permissions    employee_permissions[]
 
   @@unique([company_id, employee_code])
 }
@@ -486,6 +494,7 @@ model modules {
   created_at            DateTime?     @default(now()) @db.Timestamp(6)
   updated_at            DateTime?     @default(now()) @db.Timestamp(6)
   permissions           permissions[]
+  employee_permissions  employee_permissions[]
 }
 
 model permissions {
@@ -754,4 +763,25 @@ model stock_movements {
   created_at       DateTime          @default(now()) @db.Timestamp(6)
 
   @@index([company_id, product_id, created_at])
+}
+
+// What a company admin lets one employee do in each module. Only modules the
+// company itself has, and never more than the company may (see
+// permission.middleware): an employee's access is both rows together.
+model employee_permissions {
+  id          String    @id @db.VarChar(16)
+  company_id  Int
+  companies   companies @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  employee_id Int
+  employees   employees @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  module_id   String    @db.VarChar(16)
+  modules     modules   @relation(fields: [module_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  view        Boolean   @default(false)
+  create      Boolean   @default(false)
+  edit        Boolean   @default(false)
+  delete      Boolean   @default(false)
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([employee_id, module_id])
 }

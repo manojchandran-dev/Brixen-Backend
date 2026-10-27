@@ -4,6 +4,7 @@ const asyncHandler = require('../../middleware/asyncHandler');
 const { success, error } = require('../../core/responses/apiResponse');
 const { dateIn } = require('../../utils/timezone');
 const attendance = require('../attendance/service');
+const { allows } = require('../../middleware/permission.middleware');
 
 // An employee's own data, read-only: who they are and their attendance.
 // The employee comes from the access token (req.auth.employeeId), never
@@ -44,6 +45,26 @@ router.get(
       company_name: e.companies?.company_name ?? null,
       timezone: e.companies?.timezone ?? null,
     });
+  })
+);
+
+// What this employee may do in each module: their own grant AND their
+// company's, like permission.middleware decides. Shaped like /permissions
+// rows, for the app's buttons and menu.
+router.get(
+  '/permissions',
+  asyncHandler(async (req, res) => {
+    const [mine, company] = await Promise.all([
+      prisma.employee_permissions.findMany({ where: { employee_id: req.auth.employeeId } }),
+      prisma.permissions.findMany({ where: { company_id: req.auth.companyId } }),
+    ]);
+    const companyBy = new Map(company.map((p) => [p.module_id, p]));
+    const items = mine.map((p) => {
+      const c = companyBy.get(p.module_id);
+      const both = (a) => allows(p, a) && allows(c, a);
+      return { module_id: p.module_id, view: both('view'), create: both('create'), edit: both('edit'), delete: both('delete') };
+    });
+    return success(res, { items });
   })
 );
 

@@ -39,6 +39,12 @@ async function session(req, res, next) {
 
   if (!user.company_id) return error(res, 'This account has no company access', 403);
 
+  // Signed in with an emailed temporary password: only setting a new one
+  // (POST /auth/change-password, outside this guard) is allowed until then.
+  if (user.must_change_password) {
+    return error(res, 'Set a new password to continue', 403);
+  }
+
   // A company user may only ever act on its own company.
   for (const claimed of [req.query.company_id, req.body?.company_id]) {
     if (!isBlank(claimed) && Number(claimed) !== user.company_id) {
@@ -46,8 +52,9 @@ async function session(req, res, next) {
     }
   }
 
-  // An employee's own login: their profile and attendance (/me), and their
-  // menu -- none of the company admin's screens or data.
+  // An employee's own login: their profile and attendance (/me), their menu,
+  // and the modules their company admin granted them (each checked by
+  // permission.middleware) -- nothing else.
   if (user.user_type === 'employee') {
     const employee =
       user.employee_id &&
@@ -61,8 +68,9 @@ async function session(req, res, next) {
     req.auth = { userId: user.id, isSuperadmin: false, companyId: user.company_id, employeeId: user.employee_id };
     req.query.user_type = 'employee';
     req.query.company_id = String(user.company_id);
-    req.query.employee_id = String(user.employee_id);
     if (!employeeMayUse(req)) return error(res, "Employees can't access this", 403);
+    // The menu is built for this employee (not any other).
+    if (req.path.replace(/\/+$/, '') === '/modules') req.query.employee_id = String(user.employee_id);
     return next();
   }
 
@@ -72,11 +80,34 @@ async function session(req, res, next) {
   return next();
 }
 
-// What an employee login can reach: reads under /me, and the menu.
+// Routes behind requirePermission(...) in routes/v1: an employee reaches them
+// only with a grant, which that middleware checks per module and action.
+const MODULE_ROUTES = [
+  '/employees',
+  '/expenses',
+  '/customers',
+  '/sales',
+  '/products',
+  '/purchases',
+  '/inventory',
+  '/attendance',
+  '/expense-categories',
+  '/product-categories',
+  '/purchase-categories',
+  '/units',
+  '/departments',
+  '/work-types',
+];
+
+// What an employee login can reach at all: their own data (/me), the menu,
+// file uploads (for the screens they're granted), and module routes. Admin
+// areas -- companies, permissions, dashboards, notifications -- never.
 function employeeMayUse(req) {
-  if (req.method !== 'GET') return false;
   const path = req.path.replace(/\/+$/, '');
-  return path === '/modules' || path === '/me' || path.startsWith('/me/');
+  const under = (p) => path === p || path.startsWith(`${p}/`);
+  if (req.method === 'GET' && (path === '/modules' || under('/me'))) return true;
+  if (under('/uploads')) return true;
+  return MODULE_ROUTES.some(under);
 }
 
 module.exports = session;

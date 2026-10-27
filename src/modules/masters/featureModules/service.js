@@ -1,3 +1,4 @@
+const prisma = require('../../../prisma/client');
 const moduleRepository = require('./repository');
 const permissionRepository = require('../../permissions/repository');
 
@@ -82,4 +83,20 @@ async function getGrantableModules() {
   return filterGrantableTree(buildTree(modules));
 }
 
-module.exports = { getModules, getAccessibleModules, getGrantableModules };
+// An employee login's menu: modules both their company and their own grant
+// allow them to view (see permission.middleware). Support/Chatbot aren't
+// for employees, so nothing shows without a grant.
+async function getEmployeeModules(company_id, employee_id) {
+  const [modules, companyRows, employeeRows] = await Promise.all([
+    moduleRepository.findMany({ orderBy: { created_at: 'asc' } }),
+    permissionRepository.findMany({ where: { company_id } }),
+    prisma.employee_permissions.findMany({ where: { employee_id } }),
+  ]);
+  const companyView = new Set(companyRows.filter((p) => p.view).map((p) => p.module_id));
+  const granted = new Set(employeeRows.filter((p) => p.view && companyView.has(p.module_id)).map((p) => p.module_id));
+  const tree = buildTree(modules.filter((m) => m.grantable));
+  const everything = new Set(modules.map((m) => m.id));
+  return filterTree(tree, granted, everything);
+}
+
+module.exports = { getModules, getAccessibleModules, getGrantableModules, getEmployeeModules };

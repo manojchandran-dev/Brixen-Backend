@@ -146,11 +146,13 @@ async function deleteEmployee(req, res) {
   return res.status(204).send();
 }
 
-// PUT /employees/:id/login { email, password } -- set up or change the
-// employee's own login (password required when there's none yet).
-// DELETE /employees/:id/login -- remove it.
+// POST /employees/:id/login/activate -- activate (or resend): a temporary
+// password emailed to the employee's saved email. DELETE /employees/:id/login
+// -- remove it. For admins only: an employee who may edit employees can't
+// hand out logins.
 function loginHandler(action) {
   return async (req, res) => {
+    if (req.auth?.employeeId) return error(res, 'Only a company admin can manage employee logins', 403);
     const id = parseInt(req.params.id, 10);
     const company_id = parseCompanyId(req.query.company_id);
     if (!company_id) return error(res, 'company_id is required and must be a positive integer', 400);
@@ -160,7 +162,7 @@ function loginHandler(action) {
         await employeeService.removeLogin(id, company_id);
         return res.status(204).send();
       }
-      return success(res, await employeeService.setLogin(id, company_id, req.body ?? {}));
+      return success(res, await employeeService.activateLogin(id, company_id));
     } catch (err) {
       if (err instanceof employeeService.EmployeeError) return error(res, err.message, err.status);
       throw err;
@@ -176,6 +178,6 @@ module.exports = {
   updateEmployeeStep2,
   updateEmployeeStep3,
   deleteEmployee,
-  setLogin: loginHandler('set'),
+  activateLogin: loginHandler('activate'),
   removeLogin: loginHandler('remove'),
 };

@@ -20,7 +20,7 @@ router.get('/:id', asyncHandler(employeeController.getEmployeeById));
 router.put('/:id', validateUpdateEmployee, asyncHandler(employeeController.updateEmployee));
 router.put('/:id/step2', validateEmployeeStep2, asyncHandler(employeeController.updateEmployeeStep2));
 router.put('/:id/step3', validateEmployeeStep3, asyncHandler(employeeController.updateEmployeeStep3));
-router.put('/:id/login', asyncHandler(employeeController.setLogin));
+router.post('/:id/login/activate', asyncHandler(employeeController.activateLogin));
 router.delete('/:id/login', asyncHandler(employeeController.removeLogin));
 router.delete('/:id', asyncHandler(employeeController.deleteEmployee));
 router.post('/:id/restore', asyncHandler(restoreHandler('employees', { label: 'employee', intId: true })));

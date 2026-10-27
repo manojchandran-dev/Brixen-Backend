@@ -36,9 +36,8 @@ async function getModules(req, res) {
       return error(res, 'employee_id does not reference an existing employee', 404);
     }
 
-    // An employee's login only has its own screens (profile, attendance),
-    // which the app shows on its home -- none of the company's modules.
-    return success(res, []);
+    // Only the modules their company admin granted (and the company has).
+    return success(res, await moduleService.getEmployeeModules(employee.company_id, employee.id));
   }
 
   // Backward-compatible fallback for callers not yet passing user_type.

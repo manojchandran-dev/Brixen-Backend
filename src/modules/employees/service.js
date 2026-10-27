@@ -4,6 +4,8 @@ const employeeRepository = require('./repository');
 const { exact, choice, dateRange, dayRangeIST, bool, compact } = require('../../utils/listFilters');
 const companyRepository = require('../companies/repository');
 const { resolveSalary, SALARY_TYPES } = require('./salary');
+const { generateSecurePassword } = require('../../utils/securePassword');
+const { sendEmployeeSetupEmail } = require('../../utils/mailer');
 
 const EMPLOYMENT_FIELDS = [
   'department',
@@ -193,8 +195,9 @@ async function updateEmployeeStep2(id, company_id, data) {
 
 // ── Employee login ──────────────────────────────────────────────────────────
 // An employee signs in with their own users row (user_type "employee",
-// linked by employee_id). The company admin sets the email and password;
-// removing access soft-deletes the row, and setting it again brings the same
+// linked by employee_id), on their saved email. Activating makes a temporary
+// password and emails it; they must choose their own at first sign-in.
+// Removing access soft-deletes the row, and activating again brings the same
 // row back.
 
 const ANY_ROW = { deleted_at: undefined }; // see utils/productCode.js
@@ -206,46 +209,59 @@ async function revokeSessions(employee_id) {
   }
 }
 
-async function setLogin(employee_id, company_id, { email, password }) {
+// Activates (or re-sends) the employee's login: a new temporary password,
+// only its hash saved, emailed in plain text to their saved email. Each send
+// replaces the last password, so an older email stops working. If the email
+// can't be sent the login stays set up but the error is kept and returned,
+// so the admin can resend.
+async function activateLogin(employee_id, company_id) {
   const employee = await employeeRepository.findByIdAndCompany(employee_id, company_id);
   if (!employee) throw new EmployeeError('Employee not found', 404);
+  if (employee.status !== 'Active') throw new EmployeeError('Only an Active employee can be given a login');
 
-  const existing = await prisma.users.findFirst({ where: { employee_id, ...ANY_ROW } });
-  const cleanEmail = String(email ?? '').trim();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) || cleanEmail.length > 150) {
-    throw new EmployeeError('Enter a valid email address for the login');
+  const email = String(employee.email ?? '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 150) {
+    throw new EmployeeError("Add a valid email to this employee's details first: the setup email goes there");
   }
+  const existing = await prisma.users.findFirst({ where: { employee_id, ...ANY_ROW } });
   const taken = await prisma.users.findFirst({
-    where: { email: { equals: cleanEmail, mode: 'insensitive' }, ...ANY_ROW, ...(existing ? { id: { not: existing.id } } : {}) },
+    where: { email: { equals: email, mode: 'insensitive' }, ...ANY_ROW, ...(existing ? { id: { not: existing.id } } : {}) },
     select: { id: true },
   });
-  if (taken) throw new EmployeeError('This email is already used by another login', 409);
+  if (taken) throw new EmployeeError(`${email} is already used by another login`, 409);
 
-  const needsPassword = !existing || existing.deleted_at;
-  if (password !== undefined && password !== null && password !== '') {
-    if (typeof password !== 'string' || password.length < 8) {
-      throw new EmployeeError('Password must be at least 8 characters');
-    }
-  } else if (needsPassword) {
-    throw new EmployeeError('Set a password (at least 8 characters) for the new login');
-  }
-  const password_hash = password ? await bcrypt.hash(password, 10) : undefined;
-
+  const tempPassword = generateSecurePassword();
   const data = {
-    email: cleanEmail,
+    email,
     role: 'employee',
     user_type: 'employee',
     company_id,
-    ...(password_hash ? { password_hash } : {}),
+    password_hash: await bcrypt.hash(tempPassword, 10),
+    must_change_password: true,
+    setup_email_sent_at: null,
+    setup_email_error: null,
   };
   if (existing) {
     // Naming deleted_at lets this reach a removed login and bring it back.
     await prisma.users.updateMany({ where: { id: existing.id, ...ANY_ROW }, data: { ...data, deleted_at: null, updated_at: new Date() } });
-    // A new password signs the employee out everywhere.
-    if (password_hash) await revokeSessions(employee_id);
+    await revokeSessions(employee_id);
   } else {
-    await prisma.users.create({ data: { ...data, employee_id, password_hash } });
+    await prisma.users.create({ data: { ...data, employee_id } });
   }
+
+  const company = await prisma.companies.findFirst({ where: { id: company_id }, select: { company_name: true } });
+  try {
+    await sendEmployeeSetupEmail(email, {
+      name: [employee.first_name, employee.last_name].filter(Boolean).join(' '),
+      companyName: company?.company_name,
+      tempPassword,
+    });
+  } catch (err) {
+    const reason = String(err?.message ?? err).slice(0, 300);
+    await prisma.users.updateMany({ where: { employee_id }, data: { setup_email_error: reason } });
+    throw new EmployeeError(`Couldn't send the setup email to ${email} (${reason}). Check the address and tap Resend.`, 502);
+  }
+  await prisma.users.updateMany({ where: { employee_id }, data: { setup_email_sent_at: new Date(), setup_email_error: null } });
   return loginOf(employee_id);
 }
 
@@ -256,13 +272,22 @@ async function removeLogin(employee_id, company_id) {
   await prisma.users.updateMany({ where: { employee_id, deleted_at: null }, data: { deleted_at: new Date() } });
 }
 
-// { email, active } for the employee's login, or null if they never had one.
+// The employee's login, or null if they never had one: email, active, whether
+// they still have to set their own password, and the setup email's state.
 async function loginOf(employee_id) {
   const user = await prisma.users.findFirst({
     where: { employee_id, ...ANY_ROW },
-    select: { email: true, deleted_at: true },
+    select: { email: true, deleted_at: true, must_change_password: true, setup_email_sent_at: true, setup_email_error: true },
   });
-  return user ? { email: user.email, active: !user.deleted_at } : null;
+  return user
+    ? {
+        email: user.email,
+        active: !user.deleted_at,
+        must_change_password: user.must_change_password,
+        setup_email_sent_at: user.setup_email_sent_at,
+        setup_email_error: user.setup_email_error,
+      }
+    : null;
 }
 
 async function updateEmployeeStep3(id, data) {
@@ -291,7 +316,7 @@ module.exports = {
   updateEmployeeStep2,
   updateEmployeeStep3,
   deleteEmployee,
-  setLogin,
+  activateLogin,
   removeLogin,
   loginOf,
 };

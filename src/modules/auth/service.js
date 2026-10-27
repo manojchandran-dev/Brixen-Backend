@@ -35,6 +35,8 @@ async function toUserResponse(user) {
     user_type: user.user_type,
     company_id: user.company_id,
     hasPin: Boolean(user.pin_hash),
+    // Signed in with an emailed temporary password: set a new one first.
+    must_change_password: Boolean(user.must_change_password),
   };
 
   if (user.user_type === 'company' && user.company_id) {
@@ -255,7 +257,7 @@ async function forgotPin(refreshToken) {
     otp_hash: hashToken(otp),
     otp_expires_at: new Date(Date.now() + OTP_TTL_MS),
   });
-  await sendPinResetOtpEmail(user.email, otp);
+  await sendPinResetOtpEmail(user.email, otp, { plain: user.user_type === 'employee' });
 
   return { email: maskEmail(user.email) };
 }
@@ -324,7 +326,7 @@ async function forgotPassword(email) {
     otp_expires_at: new Date(Date.now() + OTP_TTL_MS),
   });
 
-  await sendOtpEmail(user.email, otp);
+  await sendOtpEmail(user.email, otp, { plain: user.user_type === 'employee' });
 }
 
 async function verifyOtp(email, otp) {
@@ -358,7 +360,8 @@ async function resetPassword(resetToken, newPassword) {
   }
 
   const password_hash = await bcrypt.hash(newPassword, 10);
-  await userRepository.update(record.user_id, { password_hash });
+  // A password the user chose: any temporary one is done with.
+  await userRepository.update(record.user_id, { password_hash, must_change_password: false });
   await passwordResetRepository.markConsumed(record.id);
   await refreshTokenRepository.revokeAllForUser(record.user_id);
 }
@@ -376,8 +379,12 @@ async function changePassword(userId, currentPassword, newPassword) {
     throw new AuthError('Current password is incorrect');
   }
 
+  if (newPassword === currentPassword) {
+    throw new AuthError('Choose a new password, different from the current one', 400);
+  }
+
   const password_hash = await bcrypt.hash(newPassword, 10);
-  await userRepository.update(userId, { password_hash });
+  await userRepository.update(userId, { password_hash, must_change_password: false });
   await refreshTokenRepository.revokeAllForUser(userId);
 }
 

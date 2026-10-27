@@ -10,7 +10,8 @@ const DEFAULT_MODULES = [
   { name: 'Support Ticket', description: 'Company support requests', always_visible: true },
   { name: 'Chatbot', description: 'Live support chat', always_visible: true },
   { name: 'Permissions', description: 'Access control', grantable: false },
-  { name: 'Employees', description: 'Manage staff', visible_to_superadmin: false },
+  // Superadmins see every company's staff (with the company filter).
+  { name: 'Employees', description: 'Manage staff' },
   { name: 'Sales', description: 'Invoices', visible_to_superadmin: false },
   { name: 'Customers', description: 'Customer records', visible_to_superadmin: false },
   { name: 'Expenses', description: 'Track spending', visible_to_superadmin: false },
