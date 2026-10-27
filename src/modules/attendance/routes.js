@@ -27,7 +27,7 @@ router.get(
   '/meta',
   handle(async (req, res, company_id) => {
     const { meta } = await service.list(company_id, { employee_id: -1 });
-    return success(res, { ...meta, shift_units: service.SHIFT_UNITS, max_shifts: service.MAX_SHIFTS });
+    return success(res, { ...meta, shift_units: service.SHIFT_UNITS, max_shifts: service.MAX_SHIFTS, max_hours: service.MAX_HOURS });
   })
 );
 

@@ -4,9 +4,11 @@ const asyncHandler = require('../../middleware/asyncHandler');
 const { success, error } = require('../../core/responses/apiResponse');
 const { dateIn } = require('../../utils/timezone');
 const attendance = require('../attendance/service');
+const payroll = require('../payroll/service');
 const { allows } = require('../../middleware/permission.middleware');
 
-// An employee's own data, read-only: who they are and their attendance.
+// An employee's own data, read-only: who they are, their attendance and
+// payslips.
 // The employee comes from the access token (req.auth.employeeId), never
 // from the request.
 
@@ -83,15 +85,36 @@ router.get(
           days: a.days + 1,
           shifts: a.shifts + r.total_shifts,
           pieces: a.pieces + r.total_pieces,
+          hours: a.hours + (r.hours ?? 0),
+          day_units: a.day_units + (r.day_units ?? 0),
           amount: r.total_amount === null ? a.amount : Math.round((a.amount + r.total_amount) * 100) / 100,
         }),
-        { days: 0, shifts: 0, pieces: 0, amount: 0 }
+        { days: 0, shifts: 0, pieces: 0, hours: 0, day_units: 0, amount: 0 }
       );
       return success(res, { items, totals, meta: { ...meta, from, to } });
     } catch (err) {
       if (err instanceof attendance.AttendanceError) return error(res, err.message, err.status);
       throw err;
     }
+  })
+);
+
+// This employee's payslips from finalized salary months, newest first.
+router.get(
+  '/payslips',
+  asyncHandler(async (req, res) => {
+    const rows = await prisma.payslips.findMany({
+      where: { employee_id: req.auth.employeeId, company_id: req.auth.companyId, payroll_runs: { status: payroll.FINALIZED } },
+      include: {
+        payroll_runs: true,
+        employees: {
+          select: { id: true, employee_code: true, first_name: true, last_name: true, email: true, department: true, designation: true },
+        },
+      },
+      orderBy: { payroll_runs: { month: 'desc' } },
+      take: 60,
+    });
+    return success(res, { items: rows.map((p) => payroll.shapeSlip(p)) });
   })
 );
 

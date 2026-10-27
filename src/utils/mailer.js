@@ -129,4 +129,53 @@ async function sendDeactivationEmail(to, email) {
   });
 }
 
-module.exports = { sendOtpEmail, sendWelcomeEmail, sendDeactivationEmail, sendPinResetOtpEmail, sendEmployeeSetupEmail };
+const rupees = (n) => `Rs. ${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const qty = (n) => Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
+// One employee's payslip for a month (payroll/service shapeSlip), plain text
+// like the other employee emails.
+async function sendPayslipEmail(to, { slip, typeLabel, companyName }) {
+  if (!resend) {
+    throw new Error('Email is not set up on the server (RESEND_API_KEY is missing)');
+  }
+  const [y, m] = slip.month.split('-').map(Number);
+  const monthName = new Date(Date.UTC(y, m - 1, 1)).toLocaleString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const per = { SHIFT_RATE: 'per shift', HOURLY: 'per hour', WEEKLY: 'per week', MONTHLY: 'per month' }[slip.salary_type];
+  const worked = {
+    SHIFT_RATE: `Shifts worked: ${qty(slip.units)}`,
+    PIECE_RATE: `Pieces done: ${qty(slip.units)}`,
+    HOURLY: `Hours worked: ${qty(slip.units)}`,
+    WEEKLY: `Days worked: ${qty(slip.units)}`,
+    MONTHLY: `Days worked: ${qty(slip.units)} of ${slip.working_days}`,
+  }[slip.salary_type];
+  const text = [
+    `Hello ${slip.employee.name},`,
+    '',
+    `Here is your payslip for ${monthName} from ${companyName || 'your company'}.`,
+    '',
+    `Employee ID: ${slip.employee.employee_code ?? '-'}`,
+    `Salary type: ${typeLabel}${slip.rate !== null && per ? ` (${rupees(slip.rate)} ${per})` : ''}`,
+    `Days present: ${qty(slip.days_present)}`,
+    ...(worked ? [worked] : []),
+    ...(slip.breakdown ?? []).map((l) => `  ${l.name}: ${qty(l.quantity)} x ${rupees(l.rate)} = ${rupees(l.amount)}`),
+    '',
+    `Earned: ${rupees(slip.gross)}`,
+    ...(slip.additions > 0 ? [`Additions: ${rupees(slip.additions)}`] : []),
+    ...(slip.deductions > 0 ? [`Deductions: ${rupees(slip.deductions)}`] : []),
+    `Net pay: ${rupees(slip.net)}`,
+    ...(slip.notes ? ['', `Note: ${slip.notes}`] : []),
+    '',
+    'You can also see your payslips in the Brixen app, under My Work.',
+    '',
+  ].join('\n');
+  await send({ from: RESEND_FROM_EMAIL, to, subject: `Your payslip for ${monthName}`, text });
+}
+
+module.exports = {
+  sendOtpEmail,
+  sendWelcomeEmail,
+  sendDeactivationEmail,
+  sendPinResetOtpEmail,
+  sendEmployeeSetupEmail,
+  sendPayslipEmail,
+};

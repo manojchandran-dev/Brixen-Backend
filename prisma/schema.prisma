@@ -72,32 +72,34 @@ model companies {
   work_types              work_types[]
   attendance              attendance[]
   employee_permissions    employee_permissions[]
+  payroll_runs            payroll_runs[]
+  payslips                payslips[]
 }
 
 model users {
-  id              Int               @id @default(autoincrement())
-  deleted_at      DateTime?         @db.Timestamp(6)
-  company_id      Int?
-  companies       companies?        @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  email           String            @unique @db.VarChar(150)
-  password_hash   String            @db.VarChar(255)
-  pin_hash        String?           @db.VarChar(255)
-  role            String            @default("user") @db.VarChar(20)
-  user_type       String?           @db.VarChar(20)
+  id                   Int               @id @default(autoincrement())
+  deleted_at           DateTime?         @db.Timestamp(6)
+  company_id           Int?
+  companies            companies?        @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  email                String            @unique @db.VarChar(150)
+  password_hash        String            @db.VarChar(255)
+  pin_hash             String?           @db.VarChar(255)
+  role                 String            @default("user") @db.VarChar(20)
+  user_type            String?           @db.VarChar(20)
   // An employee's own login (user_type "employee"): which employee it is.
   // Set by the company admin from the employee's record.
-  employee_id     Int?              @unique
-  employees       employees?        @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  employee_id          Int?              @unique
+  employees            employees?        @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   // Signed in with an emailed temporary password: a new one must be set
   // before anything else (see session.middleware).
-  must_change_password Boolean      @default(false)
+  must_change_password Boolean           @default(false)
   // The employee setup email: when it last went out, or why it failed.
-  setup_email_sent_at  DateTime?    @db.Timestamp(6)
+  setup_email_sent_at  DateTime?         @db.Timestamp(6)
   setup_email_error    String?
-  created_at      DateTime          @default(now()) @db.Timestamp(6)
-  updated_at      DateTime          @default(now()) @db.Timestamp(6)
-  refresh_tokens  refresh_tokens[]
-  password_resets password_resets[]
+  created_at           DateTime          @default(now()) @db.Timestamp(6)
+  updated_at           DateTime          @default(now()) @db.Timestamp(6)
+  refresh_tokens       refresh_tokens[]
+  password_resets      password_resets[]
 }
 
 model password_resets {
@@ -276,48 +278,50 @@ model product_variants {
 }
 
 model employees {
-  id                      Int         @id @default(autoincrement())
-  deleted_at              DateTime?   @db.Timestamp(6)
+  id                      Int                    @id @default(autoincrement())
+  deleted_at              DateTime?              @db.Timestamp(6)
   company_id              Int
-  companies               companies   @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  employee_code           String?     @db.VarChar(20)
-  first_name              String      @db.VarChar(100)
-  last_name               String?     @db.VarChar(100)
-  gender                  String?     @db.VarChar(20)
-  date_of_birth           DateTime?   @db.Date
-  email                   String?     @db.VarChar(150)
-  phone                   String?     @db.VarChar(20)
+  companies               companies              @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  employee_code           String?                @db.VarChar(20)
+  first_name              String                 @db.VarChar(100)
+  last_name               String?                @db.VarChar(100)
+  gender                  String?                @db.VarChar(20)
+  date_of_birth           DateTime?              @db.Date
+  email                   String?                @db.VarChar(150)
+  phone                   String?                @db.VarChar(20)
   address                 String?
-  joining_date            DateTime?   @db.Date
+  joining_date            DateTime?              @db.Date
   // Free text from before the Department master; kept for older records.
-  department              String?     @db.VarChar(100)
-  department_id           String?     @db.VarChar(16)
-  departments             departments? @relation(fields: [department_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  designation             String?     @db.VarChar(100)
+  department              String?                @db.VarChar(100)
+  department_id           String?                @db.VarChar(16)
+  departments             departments?           @relation(fields: [department_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  designation             String?                @db.VarChar(100)
   manager_id              Int?
-  manager                 employees?  @relation("EmployeeManager", fields: [manager_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  reports                 employees[] @relation("EmployeeManager")
-  employment_type         String?     @db.VarChar(30)
-  // SHIFT_RATE: paid salary_amount (in `salary`) per MONTHLY / WEEKLY /
-  // DAILY / HOURLY. PIECE_RATE: always PER_PIECE, paid by each work type's
-  // rate, so `salary` is unused. Null on employees from before this.
-  salary_type             String?     @db.VarChar(20)
-  salary_period           String?     @db.VarChar(20)
-  salary                  Decimal?    @db.Decimal(12, 2)
-  pan_number              String?     @db.VarChar(10)
-  aadhaar_number          String?     @db.VarChar(20)
-  bank_name               String?     @db.VarChar(100)
-  account_number          String?     @db.VarChar(30)
-  ifsc_code               String?     @db.VarChar(15)
-  emergency_contact_name  String?     @db.VarChar(100)
-  emergency_contact_phone String?     @db.VarChar(20)
-  status                  String?     @default("Active") @db.VarChar(20)
-  onboarding_status       String?     @default("pending") @db.VarChar(20)
-  user_type               String?     @default("employee") @db.VarChar(20)
-  created_at              DateTime?   @default(now()) @db.Timestamp(6)
+  manager                 employees?             @relation("EmployeeManager", fields: [manager_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  reports                 employees[]            @relation("EmployeeManager")
+  employment_type         String?                @db.VarChar(30)
+  // SHIFT_RATE / HOURLY / WEEKLY / MONTHLY: paid `salary` per shift, hour,
+  // week or month. PIECE_RATE: by each work type's rate, so `salary` is
+  // unused. salary_period mirrors the type (see employees/salary.js). Null
+  // on employees from before this.
+  salary_type             String?                @db.VarChar(20)
+  salary_period           String?                @db.VarChar(20)
+  salary                  Decimal?               @db.Decimal(12, 2)
+  pan_number              String?                @db.VarChar(10)
+  aadhaar_number          String?                @db.VarChar(20)
+  bank_name               String?                @db.VarChar(100)
+  account_number          String?                @db.VarChar(30)
+  ifsc_code               String?                @db.VarChar(15)
+  emergency_contact_name  String?                @db.VarChar(100)
+  emergency_contact_phone String?                @db.VarChar(20)
+  status                  String?                @default("Active") @db.VarChar(20)
+  onboarding_status       String?                @default("pending") @db.VarChar(20)
+  user_type               String?                @default("employee") @db.VarChar(20)
+  created_at              DateTime?              @default(now()) @db.Timestamp(6)
   users                   users?
   attendance              attendance[]
   employee_permissions    employee_permissions[]
+  payslips                payslips[]
 
   @@unique([company_id, employee_code])
 }
@@ -365,8 +369,11 @@ model attendance {
   // When it was recorded, and that moment in the company's time zone.
   recorded_at DateTime            @default(now()) @db.Timestamp(6)
   timezone    String              @db.VarChar(64)
-  // SHIFT_RATE or PIECE_RATE: the employee's salary type at the time.
+  // The employee's salary type at the time (employees/salary.js).
   kind        String              @db.VarChar(20)
+  // HOURLY: hours worked. WEEKLY / MONTHLY: 1 (full day) or 0.5 (half).
+  hours       Decimal?            @db.Decimal(5, 2)
+  day_units   Decimal?            @db.Decimal(3, 2)
   notes       String?
   recorded_by Int?
   created_at  DateTime?           @default(now()) @db.Timestamp(6)
@@ -420,36 +427,36 @@ model customers {
 }
 
 model sales {
-  id             String       @id @db.VarChar(16)
-  company_id     Int
-  companies      companies    @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  bill_date      DateTime?    @db.Date
-  customer_id    String?
-  customers      customers?   @relation(fields: [customer_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  invoice_type   String?      @db.VarChar(30)
-  bill_image_url String?
-  subtotal       Decimal      @db.Decimal(12, 2)
-  tax_percentage Decimal?     @default(0) @db.Decimal(5, 2)
-  tax_amount     Decimal?     @default(0) @db.Decimal(12, 2)
-  total_amount   Decimal?     @db.Decimal(12, 2)
+  id                 String       @id @db.VarChar(16)
+  company_id         Int
+  companies          companies    @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  bill_date          DateTime?    @db.Date
+  customer_id        String?
+  customers          customers?   @relation(fields: [customer_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  invoice_type       String?      @db.VarChar(30)
+  bill_image_url     String?
+  subtotal           Decimal      @db.Decimal(12, 2)
+  tax_percentage     Decimal?     @default(0) @db.Decimal(5, 2)
+  tax_amount         Decimal?     @default(0) @db.Decimal(12, 2)
+  total_amount       Decimal?     @db.Decimal(12, 2)
   // Received so far; the balance is total_amount - amount_paid.
-  amount_paid    Decimal      @default(0) @db.Decimal(12, 2)
-  payment_type   String?      @db.VarChar(30)
-  payment_status String       @default("Pending") @db.VarChar(20)
-  notes          String?
+  amount_paid        Decimal      @default(0) @db.Decimal(12, 2)
+  payment_type       String?      @db.VarChar(30)
+  payment_status     String       @default("Pending") @db.VarChar(20)
+  notes              String?
   // GST = tax invoice; SECONDARY = bill without GST (tax is always 0).
   // Fixed once the sale is created.
-  bill_type      String       @default("GST") @db.VarChar(10)
+  bill_type          String       @default("GST") @db.VarChar(10)
   // A GST bill that can also be printed as a secondary bill (no GST).
   // Always false on a secondary bill.
-  has_secondary_bill Boolean  @default(false)
+  has_secondary_bill Boolean      @default(false)
   // Running number per company, bill type and financial year, set by the
   // server: "C7G2627/0001" (GST), "C7S2627/0001" (secondary). It carries the
   // company id, so it's unique across all companies. Null on older sales.
-  bill_no        String?      @unique @db.VarChar(30)
-  created_at     DateTime?    @default(now()) @db.Timestamp(6)
-  updated_at     DateTime?    @default(now()) @db.Timestamp(6)
-  sale_items     sale_items[]
+  bill_no            String?      @unique @db.VarChar(30)
+  created_at         DateTime?    @default(now()) @db.Timestamp(6)
+  updated_at         DateTime?    @default(now()) @db.Timestamp(6)
+  sale_items         sale_items[]
 }
 
 model sale_items {
@@ -480,19 +487,19 @@ model sale_items {
 }
 
 model modules {
-  id                    String        @id @db.VarChar(16)
-  name                  String        @db.VarChar(100)
-  description           String?       @db.VarChar(200)
+  id                    String                 @id @db.VarChar(16)
+  name                  String                 @db.VarChar(100)
+  description           String?                @db.VarChar(200)
   parent_id             String?
-  parent                modules?      @relation("ModuleParent", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  children              modules[]     @relation("ModuleParent")
-  visible_to_superadmin Boolean       @default(true)
-  always_visible        Boolean       @default(false)
+  parent                modules?               @relation("ModuleParent", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  children              modules[]              @relation("ModuleParent")
+  visible_to_superadmin Boolean                @default(true)
+  always_visible        Boolean                @default(false)
   // false = superadmin-only (Companies, Permissions, Company Category): never
   // offered on the company Permissions screen.
-  grantable             Boolean       @default(true)
-  created_at            DateTime?     @default(now()) @db.Timestamp(6)
-  updated_at            DateTime?     @default(now()) @db.Timestamp(6)
+  grantable             Boolean                @default(true)
+  created_at            DateTime?              @default(now()) @db.Timestamp(6)
+  updated_at            DateTime?              @default(now()) @db.Timestamp(6)
   permissions           permissions[]
   employee_permissions  employee_permissions[]
 }
@@ -784,4 +791,62 @@ model employee_permissions {
   updated_at  DateTime? @default(now()) @db.Timestamp(6)
 
   @@unique([employee_id, module_id])
+}
+
+// One month's salary generation for a company: a payslip per employee,
+// worked out from attendance. DRAFT while it's reviewed (additions and
+// deductions can change, or it can be generated again); FINALIZED once
+// confirmed -- then payslips can be sent and count in the salary report.
+model payroll_runs {
+  id           String     @id @db.VarChar(16)
+  company_id   Int
+  companies    companies  @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  // "2026-10"
+  month        String     @db.VarChar(7)
+  period_from  DateTime   @db.Date
+  period_to    DateTime   @db.Date
+  // A monthly salary is per these days (the month less its Sundays, unless
+  // changed when generating).
+  working_days Int
+  status       String     @default("DRAFT") @db.VarChar(20)
+  total_gross  Decimal    @default(0) @db.Decimal(14, 2)
+  total_net    Decimal    @default(0) @db.Decimal(14, 2)
+  created_by   Int?
+  finalized_at DateTime?  @db.Timestamp(6)
+  created_at   DateTime?  @default(now()) @db.Timestamp(6)
+  updated_at   DateTime?  @default(now()) @db.Timestamp(6)
+  payslips     payslips[]
+
+  @@unique([company_id, month])
+}
+
+// One employee's pay for a payroll run. [units] are shifts, pieces, hours
+// or days, by [salary_type]; [rate] is the salary amount then (null for
+// piece rate). net = gross + additions - deductions.
+model payslips {
+  id           String       @id @db.VarChar(16)
+  run_id       String       @db.VarChar(16)
+  payroll_runs payroll_runs @relation(fields: [run_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_id   Int
+  companies    companies    @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  employee_id  Int
+  employees    employees    @relation(fields: [employee_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  salary_type  String       @db.VarChar(20)
+  rate         Decimal?     @db.Decimal(12, 2)
+  units        Decimal      @default(0) @db.Decimal(12, 2)
+  days_present Decimal      @default(0) @db.Decimal(6, 2)
+  gross        Decimal      @default(0) @db.Decimal(12, 2)
+  additions    Decimal      @default(0) @db.Decimal(12, 2)
+  deductions   Decimal      @default(0) @db.Decimal(12, 2)
+  net          Decimal      @default(0) @db.Decimal(12, 2)
+  // Piece rate: [{ work_type_id, name, quantity, rate, amount }].
+  breakdown    Json?
+  notes        String?
+  emailed_at   DateTime?    @db.Timestamp(6)
+  email_error  String?
+  created_at   DateTime?    @default(now()) @db.Timestamp(6)
+  updated_at   DateTime?    @default(now()) @db.Timestamp(6)
+
+  @@unique([run_id, employee_id])
+  @@index([employee_id])
 }

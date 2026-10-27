@@ -17,6 +17,7 @@ const inventoryRoutes = require('../../modules/inventory/routes');
 const attendanceRoutes = require('../../modules/attendance/routes');
 const meRoutes = require('../../modules/me/routes');
 const employeePermissionRoutes = require('../../modules/employeePermissions/routes');
+const payrollRoutes = require('../../modules/payroll/routes');
 const asyncHandler = require('../../middleware/asyncHandler');
 const session = require('../../middleware/session.middleware');
 const roleMiddleware = require('../../middleware/role.middleware');
@@ -54,6 +55,8 @@ router.use('/attendance', requirePermission('Attendance'), attendanceRoutes);
 router.use('/me', meRoutes);
 // Company admins grant their employees modules (employee logins never reach it).
 router.use('/employee-permissions', requirePermission('Employees'), employeePermissionRoutes);
+// Salary generation is part of Employees.
+router.use('/payroll', requirePermission('Employees'), payrollRoutes);
 // Companies may read their own permissions; only superadmin changes them.
 router.use('/permissions', (req, res, next) => (req.method === 'GET' ? next() : roleMiddleware(req, res, next)), permissionRoutes);
 router.use('/uploads', uploadRoutes);

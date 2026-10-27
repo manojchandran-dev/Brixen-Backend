@@ -8,7 +8,9 @@ const { DEFAULT_TZ, dateIn, localTime, parseDay } = require('../../utils/timezon
 //   SHIFT_RATE -- 1 to 3 shifts, each 1/4, 1/2, 3/4, 1, 2 or 3 shifts;
 //   PIECE_RATE -- one or more work types with the quantity done; each line
 //                 keeps the work type's rate as it was, so amount = qty x rate
-//                 doesn't change when the rate does later.
+//                 doesn't change when the rate does later;
+//   HOURLY     -- the hours worked (1/4 hour steps, up to 24);
+//   WEEKLY / MONTHLY -- a full day (1) or a half day (0.5).
 
 class AttendanceError extends Error {
   constructor(message, status = 400) {
@@ -20,6 +22,9 @@ class AttendanceError extends Error {
 const SHIFT_UNITS = [0.25, 0.5, 0.75, 1, 2, 3];
 const MAX_SHIFTS = 3;
 const MAX_QUANTITY = 1000000;
+const MAX_HOURS = 24;
+const DAY_UNITS = [0.5, 1];
+const DAY_KINDS = ['WEEKLY', 'MONTHLY'];
 
 const INCLUDE = {
   employees: {
@@ -47,8 +52,9 @@ async function companyTz(company_id) {
 }
 
 // The API shape: plain numbers, the date as YYYY-MM-DD, the employee, and
-// the day's totals. A shift-rate employee paid DAILY gets an amount
-// (shifts x daily rate); other periods aren't a per-day figure.
+// the day's totals. The day's amount: pieces x rates, shifts x the per-shift
+// salary, hours x the hourly one. A weekly or monthly salary isn't a per-day
+// figure (salary generation works it out), so null.
 function shape(r) {
   const e = r.employees;
   const shifts = r.shifts.map((s) => ({ shift_no: s.shift_no, units: Number(s.units) }));
@@ -61,12 +67,18 @@ function shape(r) {
   }));
   const totalShifts = shifts.reduce((a, s) => a + s.units, 0);
   const salary = e.salary === null ? null : Number(e.salary);
+  const hours = r.hours === null ? null : Number(r.hours);
+  const dayUnits = r.day_units === null ? null : Number(r.day_units);
+  // The salary only prices the day while the employee is still paid that way.
+  const rate = e.salary_type === r.kind ? salary : null;
   const amount =
     r.kind === 'PIECE_RATE'
       ? round2(pieces.reduce((a, p) => a + p.amount, 0))
-      : e.salary_period === 'DAILY' && salary
-        ? round2(totalShifts * salary)
-        : null;
+      : r.kind === 'SHIFT_RATE' && rate
+        ? round2(totalShifts * rate)
+        : r.kind === 'HOURLY' && rate && hours !== null
+          ? round2(hours * rate)
+          : null;
   return {
     id: r.id,
     company_id: r.company_id,
@@ -88,19 +100,40 @@ function shape(r) {
     notes: r.notes,
     shifts,
     pieces,
+    hours,
+    day_units: DAY_KINDS.includes(r.kind) ? (dayUnits ?? 1) : null,
     total_shifts: totalShifts,
     total_pieces: pieces.reduce((a, p) => a + p.quantity, 0),
     total_amount: amount,
   };
 }
 
-// The checked shift or piece rows for [kind]. [previous] = the record's
-// current pieces when editing: a work type already on it keeps its rate
-// (and may stay even if made inactive since).
+// The checked shift or piece rows, hours or day for [kind]. [previous] = the
+// record's current pieces when editing: a work type already on it keeps its
+// rate (and may stay even if made inactive since).
 async function entries(company_id, kind, body, previous = []) {
   const shifts = body.shifts ?? [];
   const pieces = body.pieces ?? [];
   if (!Array.isArray(shifts) || !Array.isArray(pieces)) throw new AttendanceError('shifts and pieces must be lists');
+  const none = { shifts: [], pieces: [], hours: null, day_units: null };
+
+  if (kind === 'HOURLY' || DAY_KINDS.includes(kind)) {
+    if (shifts.length || pieces.length) {
+      throw new AttendanceError(
+        kind === 'HOURLY' ? 'This employee is paid by the hour: record hours worked' : 'Record a full or half day for this employee'
+      );
+    }
+    if (kind === 'HOURLY') {
+      const hours = Number(body.hours);
+      if (!Number.isFinite(hours) || hours <= 0 || hours > MAX_HOURS || Math.round(hours * 4) !== hours * 4) {
+        throw new AttendanceError(`Hours must be more than 0 and at most ${MAX_HOURS}, in quarter hours (e.g. 7.5)`);
+      }
+      return { ...none, hours };
+    }
+    const day = body.day_units === undefined || body.day_units === null ? 1 : Number(body.day_units);
+    if (!DAY_UNITS.includes(day)) throw new AttendanceError('Pick a full day or a half day');
+    return { ...none, day_units: day };
+  }
 
   if (kind === 'SHIFT_RATE') {
     if (pieces.length) throw new AttendanceError('This employee is paid by shift: record shifts, not pieces');
@@ -113,6 +146,8 @@ async function entries(company_id, kind, body, previous = []) {
         return { id: prefixedId('ATSH'), shift_no: i + 1, units };
       }),
       pieces: [],
+      hours: null,
+      day_units: null,
     };
   }
 
@@ -125,7 +160,7 @@ async function entries(company_id, kind, body, previous = []) {
   const byId = new Map(types.map((t) => [t.id, t]));
   const kept = new Map(previous.map((p) => [p.work_type_id, p]));
   return {
-    shifts: [],
+    ...none,
     pieces: pieces.map((p, i) => {
       const type = byId.get(ids[i]);
       const before = kept.get(ids[i]);
@@ -159,7 +194,7 @@ async function create(company_id, recorded_by, body) {
   const employee = await findEmployee(body.employee_id, company_id);
   if (employee.status !== 'Active') throw new AttendanceError(`${fullName(employee)} is ${employee.status ?? 'not active'}`);
   if (!employee.salary_type) {
-    throw new AttendanceError(`Set ${fullName(employee)}'s salary type (Shift Rate or Piece Rate) before recording attendance`);
+    throw new AttendanceError(`Set ${fullName(employee)}'s salary type in Employees before recording attendance`);
   }
 
   const today = dateIn(tz);
@@ -173,7 +208,7 @@ async function create(company_id, recorded_by, body) {
     throw new AttendanceError(`Attendance for ${fullName(employee)} on ${day} is already recorded. Edit that entry instead`, 409);
   }
 
-  const { shifts, pieces } = await entries(company_id, employee.salary_type, body);
+  const { shifts, pieces, hours, day_units } = await entries(company_id, employee.salary_type, body);
   try {
     const created = await prisma.attendance.create({
       data: {
@@ -183,6 +218,8 @@ async function create(company_id, recorded_by, body) {
         work_date,
         timezone: tz,
         kind: employee.salary_type,
+        hours,
+        day_units,
         notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null,
         recorded_by,
         shifts: { create: shifts },
@@ -199,11 +236,12 @@ async function create(company_id, recorded_by, body) {
   }
 }
 
-// Replaces the day's shifts or pieces (and notes). Employee and date stay.
+// Replaces the day's shifts, pieces, hours or day (and notes). Employee and
+// date stay.
 async function update(id, company_id, recorded_by, body) {
   const current = await prisma.attendance.findFirst({ where: { id, company_id }, include: { pieces: true } });
   if (!current) throw new AttendanceError('Attendance not found', 404);
-  const { shifts, pieces } = await entries(company_id, current.kind, body, current.pieces);
+  const { shifts, pieces, hours, day_units } = await entries(company_id, current.kind, body, current.pieces);
   await prisma.$transaction([
     prisma.attendance_shifts.deleteMany({ where: { attendance_id: id } }),
     prisma.attendance_pieces.deleteMany({ where: { attendance_id: id } }),
@@ -213,6 +251,8 @@ async function update(id, company_id, recorded_by, body) {
         ...(body.notes !== undefined
           ? { notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null }
           : {}),
+        hours,
+        day_units,
         recorded_by,
         updated_at: new Date(),
         shifts: { create: shifts },
@@ -229,7 +269,7 @@ async function remove(id, company_id) {
 }
 
 // ?date= one day (default: today in the company's zone), or ?from=&to=;
-// ?employee_id=, ?kind=SHIFT_RATE|PIECE_RATE, ?search= (name or code).
+// ?employee_id=, ?kind= (a salary type), ?search= (name or code).
 async function list(company_id, q = {}) {
   const tz = await companyTz(company_id);
   const today = dateIn(tz);
@@ -266,4 +306,4 @@ async function list(company_id, q = {}) {
   return { items: rows.map(shape), meta: { timezone: tz, today } };
 }
 
-module.exports = { AttendanceError, SHIFT_UNITS, MAX_SHIFTS, companyTz, list, getOne, create, update, remove };
+module.exports = { AttendanceError, SHIFT_UNITS, MAX_SHIFTS, MAX_HOURS, companyTz, list, getOne, create, update, remove };
