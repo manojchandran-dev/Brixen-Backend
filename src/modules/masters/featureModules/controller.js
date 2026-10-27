@@ -36,10 +36,9 @@ async function getModules(req, res) {
       return error(res, 'employee_id does not reference an existing employee', 404);
     }
 
-    // Employees don't have their own permission rows yet -- they inherit
-    // whatever menu access their company has been granted.
-    const modules = await moduleService.getAccessibleModules(employee.company_id);
-    return success(res, modules);
+    // An employee's login only has its own screens (profile, attendance),
+    // which the app shows on its home -- none of the company's modules.
+    return success(res, []);
   }
 
   // Backward-compatible fallback for callers not yet passing user_type.

@@ -68,6 +68,8 @@ function validateManagerId(body, errors) {
   body.manager_id = managerId;
 }
 
+// The amount alone; whether it's required (and the type/period combination)
+// is checked in salary.js, against the employee's saved values.
 function validateSalary(body, errors) {
   if (body.salary === undefined || body.salary === null || body.salary === '') {
     return;
@@ -135,9 +137,18 @@ function validateUpdateEmployee(req, res, next) {
   next();
 }
 
-// Step 2 — Employment
+// Step 2 — Employment. Department (from the Department master) and salary
+// type are required here; the service checks the salary combination.
 function validateEmployeeStep2(req, res, next) {
   const errors = [];
+
+  const { department_id, salary_type } = req.body;
+  if (typeof department_id !== 'string' || !/^DEPT\d{12}$/.test(department_id)) {
+    errors.push('Pick a department');
+  }
+  if (salary_type === undefined || salary_type === null || salary_type === '') {
+    errors.push('Pick a salary type: Shift Rate or Piece Rate');
+  }
 
   validateOptionalStrings(req.body, errors);
   validateEnum(req.body, 'employment_type', EMPLOYMENT_TYPES, errors);

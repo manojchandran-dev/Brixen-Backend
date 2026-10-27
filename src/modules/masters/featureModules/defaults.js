@@ -16,6 +16,7 @@ const DEFAULT_MODULES = [
   { name: 'Expenses', description: 'Track spending', visible_to_superadmin: false },
   { name: 'Products', description: 'Garments catalog', visible_to_superadmin: false },
   { name: 'Purchases', description: 'Supplier bills & stock in', visible_to_superadmin: false },
+  { name: 'Attendance', description: 'Shifts & pieces per day', visible_to_superadmin: false },
   {
     name: 'Masters',
     description: 'Categories & units',
@@ -25,6 +26,8 @@ const DEFAULT_MODULES = [
       { name: 'Units', description: 'Measurement units', visible_to_superadmin: false },
       { name: 'Product Category', description: 'Garments categories', visible_to_superadmin: false },
       { name: 'Purchase Category', description: 'Raw materials bought', visible_to_superadmin: false },
+      { name: 'Department', description: 'Staff departments', visible_to_superadmin: false },
+      { name: 'Work Type', description: 'Piece-rate work & rates', visible_to_superadmin: false },
     ],
   },
 ];

@@ -15,11 +15,13 @@ const router = Router();
 router.post('/', validateCreateEmployee, asyncHandler(employeeController.createEmployee));
 router.get('/', asyncHandler(employeeController.getEmployees));
 // Distinct values for the app's filter choices (before '/:id').
-router.get('/filters', asyncHandler(filterOptionsHandler('employees', ['status', 'department', 'employment_type'])));
+router.get('/filters', asyncHandler(filterOptionsHandler('employees', ['status', 'department', 'employment_type', 'salary_type'])));
 router.get('/:id', asyncHandler(employeeController.getEmployeeById));
 router.put('/:id', validateUpdateEmployee, asyncHandler(employeeController.updateEmployee));
 router.put('/:id/step2', validateEmployeeStep2, asyncHandler(employeeController.updateEmployeeStep2));
 router.put('/:id/step3', validateEmployeeStep3, asyncHandler(employeeController.updateEmployeeStep3));
+router.put('/:id/login', asyncHandler(employeeController.setLogin));
+router.delete('/:id/login', asyncHandler(employeeController.removeLogin));
 router.delete('/:id', asyncHandler(employeeController.deleteEmployee));
 router.post('/:id/restore', asyncHandler(restoreHandler('employees', { label: 'employee', intId: true })));
 

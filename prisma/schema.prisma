@@ -41,6 +41,9 @@ model companies {
   logo_url                String?
   gallery_urls            String[]                       @default([])
   onboarding_status       String?                        @default("pending") @db.VarChar(20)
+  // IANA time zone for this company's working day (attendance dates and
+  // times), e.g. "Asia/Kolkata".
+  timezone                String                         @default("Asia/Kolkata") @db.VarChar(64)
   created_at              DateTime?                      @default(now()) @db.Timestamp(6)
   updated_at              DateTime?                      @default(now()) @updatedAt @db.Timestamp(6)
   expense_categories      expense_categories[]
@@ -65,6 +68,9 @@ model companies {
   support_ticket_messages support_ticket_messages[]
   chat_messages           chat_messages[]
   purchases               purchases[]
+  departments             departments[]
+  work_types              work_types[]
+  attendance              attendance[]
 }
 
 model users {
@@ -77,6 +83,10 @@ model users {
   pin_hash        String?           @db.VarChar(255)
   role            String            @default("user") @db.VarChar(20)
   user_type       String?           @db.VarChar(20)
+  // An employee's own login (user_type "employee"): which employee it is.
+  // Set by the company admin from the employee's record.
+  employee_id     Int?              @unique
+  employees       employees?        @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   created_at      DateTime          @default(now()) @db.Timestamp(6)
   updated_at      DateTime          @default(now()) @db.Timestamp(6)
   refresh_tokens  refresh_tokens[]
@@ -272,12 +282,20 @@ model employees {
   phone                   String?     @db.VarChar(20)
   address                 String?
   joining_date            DateTime?   @db.Date
+  // Free text from before the Department master; kept for older records.
   department              String?     @db.VarChar(100)
+  department_id           String?     @db.VarChar(16)
+  departments             departments? @relation(fields: [department_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   designation             String?     @db.VarChar(100)
   manager_id              Int?
   manager                 employees?  @relation("EmployeeManager", fields: [manager_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   reports                 employees[] @relation("EmployeeManager")
   employment_type         String?     @db.VarChar(30)
+  // SHIFT_RATE: paid salary_amount (in `salary`) per MONTHLY / WEEKLY /
+  // DAILY / HOURLY. PIECE_RATE: always PER_PIECE, paid by each work type's
+  // rate, so `salary` is unused. Null on employees from before this.
+  salary_type             String?     @db.VarChar(20)
+  salary_period           String?     @db.VarChar(20)
   salary                  Decimal?    @db.Decimal(12, 2)
   pan_number              String?     @db.VarChar(10)
   aadhaar_number          String?     @db.VarChar(20)
@@ -290,8 +308,91 @@ model employees {
   onboarding_status       String?     @default("pending") @db.VarChar(20)
   user_type               String?     @default("employee") @db.VarChar(20)
   created_at              DateTime?   @default(now()) @db.Timestamp(6)
+  users                   users?
+  attendance              attendance[]
 
   @@unique([company_id, employee_code])
+}
+
+// Company departments (Masters), picked on an employee. Soft-deleted.
+model departments {
+  id          String      @id @db.VarChar(16)
+  deleted_at  DateTime?   @db.Timestamp(6)
+  company_id  Int
+  companies   companies   @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  name        String      @db.VarChar(150)
+  description String?
+  status      String?     @default("ACTIVE") @db.VarChar(20)
+  created_at  DateTime?   @default(now()) @db.Timestamp(6)
+  updated_at  DateTime?   @default(now()) @db.Timestamp(6)
+  employees   employees[]
+}
+
+// Piece-rate work (Masters), e.g. "T-shirt neck stitching" at 300 a piece.
+// Soft-deleted.
+model work_types {
+  id                String              @id @db.VarChar(16)
+  deleted_at        DateTime?           @db.Timestamp(6)
+  company_id        Int
+  companies         companies           @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  name              String              @db.VarChar(150)
+  description       String?
+  rate              Decimal             @db.Decimal(12, 2)
+  status            String?             @default("ACTIVE") @db.VarChar(20)
+  created_at        DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamp(6)
+  attendance_pieces attendance_pieces[]
+}
+
+// One employee's attendance for one day (the company's local date). Shift-
+// rate employees record shifts, piece-rate employees record pieces. Deleted
+// for real (not soft), so the one-per-day rule stays a plain unique index.
+model attendance {
+  id          String              @id @db.VarChar(16)
+  company_id  Int
+  companies   companies           @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  employee_id Int
+  employees   employees           @relation(fields: [employee_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  work_date   DateTime            @db.Date
+  // When it was recorded, and that moment in the company's time zone.
+  recorded_at DateTime            @default(now()) @db.Timestamp(6)
+  timezone    String              @db.VarChar(64)
+  // SHIFT_RATE or PIECE_RATE: the employee's salary type at the time.
+  kind        String              @db.VarChar(20)
+  notes       String?
+  recorded_by Int?
+  created_at  DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at  DateTime?           @default(now()) @db.Timestamp(6)
+  shifts      attendance_shifts[]
+  pieces      attendance_pieces[]
+
+  @@unique([employee_id, work_date])
+  @@index([company_id, work_date])
+}
+
+// Up to three shifts in a day, each 0.25, 0.5, 0.75, 1, 2 or 3 shifts.
+model attendance_shifts {
+  id            String     @id @db.VarChar(16)
+  attendance_id String     @db.VarChar(16)
+  attendance    attendance @relation(fields: [attendance_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  shift_no      Int
+  units         Decimal    @db.Decimal(4, 2)
+
+  @@unique([attendance_id, shift_no])
+}
+
+// Pieces done of one work type; the rate is kept as it was that day.
+model attendance_pieces {
+  id            String     @id @db.VarChar(16)
+  attendance_id String     @db.VarChar(16)
+  attendance    attendance @relation(fields: [attendance_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  work_type_id  String     @db.VarChar(16)
+  work_types    work_types @relation(fields: [work_type_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  quantity      Int
+  rate          Decimal    @db.Decimal(12, 2)
+  amount        Decimal    @db.Decimal(12, 2)
+
+  @@unique([attendance_id, work_type_id])
 }
 
 model customers {

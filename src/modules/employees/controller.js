@@ -146,6 +146,28 @@ async function deleteEmployee(req, res) {
   return res.status(204).send();
 }
 
+// PUT /employees/:id/login { email, password } -- set up or change the
+// employee's own login (password required when there's none yet).
+// DELETE /employees/:id/login -- remove it.
+function loginHandler(action) {
+  return async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const company_id = parseCompanyId(req.query.company_id);
+    if (!company_id) return error(res, 'company_id is required and must be a positive integer', 400);
+    if (Number.isNaN(id)) return error(res, 'Invalid employee id', 400);
+    try {
+      if (action === 'remove') {
+        await employeeService.removeLogin(id, company_id);
+        return res.status(204).send();
+      }
+      return success(res, await employeeService.setLogin(id, company_id, req.body ?? {}));
+    } catch (err) {
+      if (err instanceof employeeService.EmployeeError) return error(res, err.message, err.status);
+      throw err;
+    }
+  };
+}
+
 module.exports = {
   createEmployee,
   getEmployees,
@@ -154,4 +176,6 @@ module.exports = {
   updateEmployeeStep2,
   updateEmployeeStep3,
   deleteEmployee,
+  setLogin: loginHandler('set'),
+  removeLogin: loginHandler('remove'),
 };

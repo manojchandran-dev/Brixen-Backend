@@ -7,6 +7,8 @@ const {
   passwordResets: passwordResetRepository,
 } = require('./repository');
 const companyRepository = require('../companies/repository');
+const prisma = require('../../prisma/client');
+const { isValidTz } = require('../../utils/timezone');
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../../utils/jwt');
 const { sendOtpEmail, sendPinResetOtpEmail } = require('../../utils/mailer');
 
@@ -41,12 +43,43 @@ async function toUserResponse(user) {
     base.company = company.id ? company : null;
   }
 
-  // user_type 'employee' has no login system yet (employees table has no
-  // credentials, and users has no employee_id link), so there's nothing to
-  // attach here yet. 'superadmin' has no separate table -- the user record
-  // above is already the full picture for that role.
+  // An employee's own login: who they are, and their company's name (never
+  // the company's own record, which carries admin-only details).
+  if (user.user_type === 'employee' && user.employee_id) {
+    const employee = await prisma.employees.findFirst({
+      where: { id: user.employee_id },
+      include: {
+        departments: { select: { name: true } },
+        companies: { select: { id: true, company_name: true, company_code: true, status: true, timezone: true } },
+      },
+    });
+    base.employee_id = user.employee_id;
+    base.employee = employee && {
+      id: employee.id,
+      employee_code: employee.employee_code,
+      first_name: employee.first_name,
+      last_name: employee.last_name,
+      department: employee.departments?.name ?? employee.department,
+      salary_type: employee.salary_type,
+    };
+    base.company = employee?.companies ?? null;
+  }
+
+  // 'superadmin' has no separate table -- the user record above is already
+  // the full picture for that role.
 
   return base;
+}
+
+// An employee may sign in only while their record exists and is Active.
+async function assertEmployeeActive(user) {
+  if (user.user_type !== 'employee') return;
+  const employee =
+    user.employee_id &&
+    (await prisma.employees.findFirst({ where: { id: user.employee_id, company_id: user.company_id }, select: { status: true } }));
+  if (!employee || employee.status !== 'Active') {
+    throw new AuthError('Your employee access is turned off. Please contact your company admin.', 403);
+  }
 }
 
 async function issueTokens(user) {
@@ -82,9 +115,11 @@ async function login(email, password) {
       throw new AuthError('Your company account is inactive. Please contact your administrator.', 403);
     }
   }
+  await assertEmployeeActive(user);
 
   const tokens = await issueTokens(user);
-  logActivity({ type: 'admin_login', title: user.user_type === 'superadmin' ? 'Superadmin login' : 'Admin login', detail: user.email, ref_id: user.id, actor_user_id: user.id, company_id: user.company_id });
+  const title = { superadmin: 'Superadmin login', employee: 'Employee login' }[user.user_type] ?? 'Admin login';
+  logActivity({ type: user.user_type === 'employee' ? 'employee_login' : 'admin_login', title, detail: user.email, ref_id: user.id, actor_user_id: user.id, company_id: user.company_id });
   return {
     user: await toUserResponse(user),
     ...tokens,
@@ -356,7 +391,8 @@ async function getMe(userId) {
 
 // Self-service profile fields, editable per role -- deliberately narrower than
 // the admin-facing company update (no status/company_code/onboarding fields).
-const COMPANY_PROFILE_FIELDS = ['owner_name', 'phone', 'secondary_email', 'website'];
+// timezone: the company's working day for attendance (an IANA zone name).
+const COMPANY_PROFILE_FIELDS = ['owner_name', 'phone', 'secondary_email', 'website', 'timezone'];
 
 async function updateMe(userId, data) {
   const user = await userRepository.findById(userId);
@@ -365,6 +401,9 @@ async function updateMe(userId, data) {
   }
 
   if (user.user_type === 'company' && user.company_id) {
+    if (data.timezone !== undefined && !isValidTz(data.timezone)) {
+      throw new AuthError('timezone must be a time zone name, e.g. Asia/Kolkata', 400);
+    }
     const payload = COMPANY_PROFILE_FIELDS.reduce((acc, field) => {
       if (data[field] !== undefined) acc[field] = data[field];
       return acc;
@@ -372,6 +411,9 @@ async function updateMe(userId, data) {
     if (Object.keys(payload).length) {
       await companyRepository.update(user.company_id, payload);
     }
+  } else if (user.user_type === 'employee') {
+    // An employee's login is set up by their company admin.
+    throw new AuthError('Ask your company admin to change your login details', 403);
   } else if (data.email !== undefined) {
     await userRepository.update(userId, { email: data.email });
   }
