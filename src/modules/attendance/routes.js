@@ -3,6 +3,7 @@ const asyncHandler = require('../../middleware/asyncHandler');
 const { success, error } = require('../../core/responses/apiResponse');
 const { parseCompanyId } = require('../../utils/companyScope');
 const service = require('./service');
+const lots = require('./lots');
 
 // Company admins record their employees' attendance. Scoped to one company
 // (a superadmin passes company_id).
@@ -21,6 +22,9 @@ const handle = (fn) =>
       throw err;
     }
   });
+
+// Lots delivered (piece work counted at delivery); before /:id.
+router.use('/lots', lots.router);
 
 // The company's time zone and today's date in it (for the date picker).
 router.get(

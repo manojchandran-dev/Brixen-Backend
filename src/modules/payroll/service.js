@@ -198,6 +198,16 @@ async function generate(company_id, user_id, body) {
     where: { company_id, work_date: { gte: from, lte: to } },
     include: { shifts: true, pieces: { include: { work_types: { select: { name: true } } } } },
   });
+  // Lots delivered in the period (piece work counted at delivery).
+  const lots = await prisma.piece_lots.findMany({
+    where: { company_id, lot_date: { gte: from, lte: to } },
+    include: { work_types: { select: { name: true } } },
+  });
+  const lotsBy = new Map();
+  for (const l of lots) {
+    if (!lotsBy.has(l.employee_id)) lotsBy.set(l.employee_id, []);
+    lotsBy.get(l.employee_id).push(l);
+  }
   const byEmployee = new Map();
   for (const r of records) {
     if (!byEmployee.has(r.employee_id)) byEmployee.set(r.employee_id, []);
@@ -207,7 +217,7 @@ async function generate(company_id, user_id, body) {
     where: {
       company_id,
       salary_type: { not: null },
-      OR: [{ status: 'Active' }, { id: { in: [...byEmployee.keys()] } }],
+      OR: [{ status: 'Active' }, { id: { in: [...byEmployee.keys(), ...lotsBy.keys()] } }],
     },
     select: { id: true, salary_type: true, salary: true },
   });
@@ -228,7 +238,7 @@ async function generate(company_id, user_id, body) {
   const kept = new Map((existing?.payslips ?? []).map((p) => [p.employee_id, p]));
   const run_id = existing?.id ?? prefixedId('PRUN');
   const slips = employees.map((e) => {
-    const pay = payFor(e, byEmployee.get(e.id) ?? [], working_days);
+    const pay = payFor(e, byEmployee.get(e.id) ?? [], working_days, lotsBy.get(e.id) ?? []);
     const before = kept.get(e.id);
     const additions = before ? Number(before.additions) : 0;
     const deductions = before ? Math.min(Number(before.deductions), pay.gross + additions) : 0;

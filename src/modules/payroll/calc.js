@@ -53,8 +53,9 @@ function workingDaysIn(month) {
 }
 
 // [records]: attendance rows with shifts and pieces (pieces carrying
-// work_types.name). Returns the payslip's figures.
-function payFor({ salary_type: type, salary }, allRecords, workingDays) {
+// work_types.name); [lots]: piece_lots delivered in the period. Returns the
+// payslip's figures.
+function payFor({ salary_type: type, salary }, allRecords, workingDays, lots = []) {
   // An absent day earns nothing and isn't a day present.
   const records = allRecords.filter((r) => r.status !== 'ABSENT');
   const rate = type === 'PIECE_RATE' || salary === null || salary === undefined ? null : Number(salary);
@@ -105,6 +106,30 @@ function payFor({ salary_type: type, salary }, allRecords, workingDays) {
       break;
     default:
       break;
+  }
+
+  // Lots delivered in the period (piece_lots), on top of whatever the
+  // salary type earns: a line each per work type and rate, marked "lots".
+  if (lots.length) {
+    const lines = new Map();
+    for (const l of lots) {
+      const key = `${l.work_type_id}@${num(l.rate)}`;
+      const line = lines.get(key) ?? {
+        work_type_id: l.work_type_id,
+        name: `${l.work_types?.name ?? 'Work type'} (lots)`,
+        quantity: 0,
+        rate: num(l.rate),
+        amount: 0,
+      };
+      line.quantity += l.pieces;
+      line.amount = round2(line.amount + num(l.amount));
+      lines.set(key, line);
+    }
+    const lotLines = [...lines.values()];
+    breakdown = [...(breakdown ?? []), ...lotLines];
+    const lotPieces = lotLines.reduce((a, l) => a + l.quantity, 0);
+    if (type === 'PIECE_RATE') units += lotPieces;
+    gross += lotLines.reduce((a, l) => a + l.amount, 0);
   }
   return { rate, units: round2(units), days_present: round2(daysPresent), gross: round2(gross), breakdown };
 }

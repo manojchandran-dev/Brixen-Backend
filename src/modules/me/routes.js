@@ -4,6 +4,7 @@ const asyncHandler = require('../../middleware/asyncHandler');
 const { success, error } = require('../../core/responses/apiResponse');
 const { dateIn } = require('../../utils/timezone');
 const attendance = require('../attendance/service');
+const lotsModule = require('../attendance/lots');
 const payroll = require('../payroll/service');
 const { allows } = require('../../middleware/permission.middleware');
 
@@ -93,7 +94,22 @@ router.get(
         }),
         { days: 0, absent: 0, shifts: 0, pieces: 0, hours: 0, day_units: 0, amount: 0 }
       );
-      return success(res, { items, totals, meta: { ...meta, from, to } });
+      // Lots delivered in the range: their pieces and pay count too.
+      const lotRows = await prisma.piece_lots.findMany({
+        where: {
+          company_id: req.auth.companyId,
+          employee_id: req.auth.employeeId,
+          lot_date: { gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T00:00:00Z`) },
+        },
+        include: lotsModule.INCLUDE,
+        orderBy: { lot_date: 'desc' },
+      });
+      const lots = lotRows.map(lotsModule.shape);
+      const lotAmount = lots.reduce((a, l) => a + l.amount, 0);
+      totals.lot_pieces = lots.reduce((a, l) => a + l.pieces, 0);
+      totals.lot_amount = Math.round(lotAmount * 100) / 100;
+      totals.amount = Math.round((totals.amount + lotAmount) * 100) / 100;
+      return success(res, { items, lots, totals, meta: { ...meta, from, to } });
     } catch (err) {
       if (err instanceof attendance.AttendanceError) return error(res, err.message, err.status);
       throw err;
