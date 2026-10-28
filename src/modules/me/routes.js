@@ -82,14 +82,16 @@ router.get(
       const { items, meta } = await attendance.list(req.auth.companyId, { from, to, employee_id: req.auth.employeeId });
       const totals = items.reduce(
         (a, r) => ({
-          days: a.days + 1,
+          // Days worked; absent days are counted on their own.
+          days: a.days + (r.status === 'ABSENT' ? 0 : 1),
+          absent: a.absent + (r.status === 'ABSENT' ? 1 : 0),
           shifts: a.shifts + r.total_shifts,
           pieces: a.pieces + r.total_pieces,
           hours: a.hours + (r.hours ?? 0),
           day_units: a.day_units + (r.day_units ?? 0),
           amount: r.total_amount === null ? a.amount : Math.round((a.amount + r.total_amount) * 100) / 100,
         }),
-        { days: 0, shifts: 0, pieces: 0, hours: 0, day_units: 0, amount: 0 }
+        { days: 0, absent: 0, shifts: 0, pieces: 0, hours: 0, day_units: 0, amount: 0 }
       );
       return success(res, { items, totals, meta: { ...meta, from, to } });
     } catch (err) {

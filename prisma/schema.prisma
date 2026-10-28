@@ -371,6 +371,8 @@ model attendance {
   timezone    String              @db.VarChar(64)
   // The employee's salary type at the time (employees/salary.js).
   kind        String              @db.VarChar(20)
+  // PRESENT, or ABSENT: no work recorded and the day isn't paid.
+  status      String              @default("PRESENT") @db.VarChar(10)
   // HOURLY: hours worked. WEEKLY / MONTHLY: 1 (full day) or 0.5 (half).
   hours       Decimal?            @db.Decimal(5, 2)
   day_units   Decimal?            @db.Decimal(3, 2)

@@ -11,6 +11,8 @@ const { DEFAULT_TZ, dateIn, localTime, parseDay } = require('../../utils/timezon
 //                 doesn't change when the rate does later;
 //   HOURLY     -- the hours worked (1/4 hour steps, up to 24);
 //   WEEKLY / MONTHLY -- a full day (1) or a half day (0.5).
+// Or the employee was ABSENT (status): nothing is recorded and the day
+// isn't paid.
 
 class AttendanceError extends Error {
   constructor(message, status = 400) {
@@ -26,6 +28,9 @@ const MAX_QUANTITY = 1000000;
 const MAX_HOURS = 24;
 const DAY_UNITS = [0.5, 1];
 const DAY_KINDS = ['WEEKLY', 'MONTHLY'];
+
+// body.status: ABSENT, or anything else (missing) = PRESENT.
+const isAbsent = (body) => String(body.status ?? '').trim().toUpperCase() === 'ABSENT';
 
 const INCLUDE = {
   employees: {
@@ -72,8 +77,10 @@ function shape(r) {
   const dayUnits = r.day_units === null ? null : Number(r.day_units);
   // The salary only prices the day while the employee is still paid that way.
   const rate = e.salary_type === r.kind ? salary : null;
-  const amount =
-    r.kind === 'PIECE_RATE'
+  const absent = r.status === 'ABSENT';
+  const amount = absent
+    ? null
+    : r.kind === 'PIECE_RATE'
       ? round2(pieces.reduce((a, p) => a + p.amount, 0))
       : r.kind === 'SHIFT_RATE' && rate
         ? round2(totalShifts * rate)
@@ -101,8 +108,9 @@ function shape(r) {
     notes: r.notes,
     shifts,
     pieces,
+    status: absent ? 'ABSENT' : 'PRESENT',
     hours,
-    day_units: DAY_KINDS.includes(r.kind) ? (dayUnits ?? 1) : null,
+    day_units: DAY_KINDS.includes(r.kind) && !absent ? (dayUnits ?? 1) : null,
     total_shifts: totalShifts,
     total_pieces: pieces.reduce((a, p) => a + p.quantity, 0),
     total_amount: amount,
@@ -117,6 +125,11 @@ async function entries(company_id, kind, body, previous = []) {
   const pieces = body.pieces ?? [];
   if (!Array.isArray(shifts) || !Array.isArray(pieces)) throw new AttendanceError('shifts and pieces must be lists');
   const none = { shifts: [], pieces: [], hours: null, day_units: null };
+
+  if (isAbsent(body)) {
+    if (shifts.length || pieces.length) throw new AttendanceError('An absent day has no shifts or pieces');
+    return none;
+  }
 
   if (kind === 'HOURLY' || DAY_KINDS.includes(kind)) {
     if (shifts.length || pieces.length) {
@@ -219,6 +232,7 @@ async function create(company_id, recorded_by, body) {
         work_date,
         timezone: tz,
         kind: employee.salary_type,
+        status: isAbsent(body) ? 'ABSENT' : 'PRESENT',
         hours,
         day_units,
         notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null,
@@ -252,6 +266,7 @@ async function update(id, company_id, recorded_by, body) {
         ...(body.notes !== undefined
           ? { notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null }
           : {}),
+        status: isAbsent(body) ? 'ABSENT' : 'PRESENT',
         hours,
         day_units,
         recorded_by,

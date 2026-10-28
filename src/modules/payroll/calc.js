@@ -4,7 +4,7 @@
 //   HOURLY      hours worked x the hourly salary;
 //   WEEKLY      days present x (weekly salary / 6 working days);
 //   MONTHLY     days present x (monthly salary / the month's working days).
-// A half day counts 0.5. Records of another kind (the employee's salary
+// A half day counts 0.5; an absent day counts nothing. Records of another kind (the employee's salary
 // type changed mid-month) still count as days present, but add no shifts,
 // hours or pieces.
 
@@ -54,7 +54,9 @@ function workingDaysIn(month) {
 
 // [records]: attendance rows with shifts and pieces (pieces carrying
 // work_types.name). Returns the payslip's figures.
-function payFor({ salary_type: type, salary }, records, workingDays) {
+function payFor({ salary_type: type, salary }, allRecords, workingDays) {
+  // An absent day earns nothing and isn't a day present.
+  const records = allRecords.filter((r) => r.status !== 'ABSENT');
   const rate = type === 'PIECE_RATE' || salary === null || salary === undefined ? null : Number(salary);
   const daysPresent = records.reduce((a, r) => a + (r.day_units === null || r.day_units === undefined ? 1 : num(r.day_units)), 0);
   let units = 0;
