@@ -232,16 +232,18 @@ async function activateLogin(employee_id, company_id) {
   });
   if (taken) throw new EmployeeError(`${email} is already used by another login`, 409);
 
-  // One setup email a minute: a second request close behind (a double tap,
-  // a request sent twice) gets the login as it is, not a second email with
-  // a different password. Claimed in one write, so two at once can't both
-  // pass.
-  if (existing && !existing.deleted_at) {
+  // A duplicate request -- the same login and address within a few seconds
+  // (a double tap, a request sent twice) -- gets the login as it is, not a
+  // second email with a different password. Claimed in one write, so two
+  // at once can't both pass. A changed address, or a Resend later on,
+  // always sends.
+  const sameAddress = existing && String(existing.email ?? '').toLowerCase() === email.toLowerCase();
+  if (existing && !existing.deleted_at && sameAddress) {
     const claimed = await prisma.users.updateMany({
       where: {
         id: existing.id,
         deleted_at: null,
-        OR: [{ setup_email_sent_at: null }, { setup_email_sent_at: { lt: new Date(Date.now() - 60 * 1000) } }],
+        OR: [{ setup_email_sent_at: null }, { setup_email_sent_at: { lt: new Date(Date.now() - 15 * 1000) } }],
       },
       data: { setup_email_sent_at: new Date() },
     });

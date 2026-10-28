@@ -213,7 +213,9 @@ async function generate(company_id, user_id, body) {
     select: { id: true, salary_type: true, salary: true },
   });
   if (!candidates.length) {
-    throw new PayrollError('No employees with a salary type. Set salary types in Employees first');
+    throw new PayrollError(
+      'Nobody to pay by the month or week: set Shift, Hourly, Weekly or Monthly salary types in Employees. Piece-rate staff are paid in the Piece rate tab'
+    );
   }
   const employees = candidates.filter((e) => !paidBy.has(e.id));
   const skipped = candidates
@@ -394,6 +396,7 @@ async function listPayslips(company_id, q = {}) {
 }
 
 module.exports = {
+  resolvePeriod,
   PayrollError,
   listRuns,
   getRun,

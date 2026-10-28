@@ -4,6 +4,7 @@ const { success, error } = require('../../core/responses/apiResponse');
 const { parseCompanyId } = require('../../utils/companyScope');
 const service = require('./service');
 const piecePays = require('./piecePays');
+const overview = require('./overview');
 
 // Salary generation, part of Employees (mounted behind its permission).
 // Scoped to one company (a superadmin passes company_id).
@@ -25,6 +26,8 @@ const handle = (fn) =>
 
 // Piece-rate pay, entered after sales.
 router.use('/piece-pays', piecePays.router);
+// Each employee's work and pay for a period; sales by day.
+router.use(overview);
 
 router.get('/runs', handle(async (req, res, company_id) => success(res, await service.listRuns(company_id))));
 
