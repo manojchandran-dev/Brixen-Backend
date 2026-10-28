@@ -3,6 +3,7 @@ const asyncHandler = require('../../middleware/asyncHandler');
 const { filterOptionsHandler, categoriesOf } = require('../../utils/listFilters');
 const restoreHandler = require('../../utils/restore');
 const productController = require('./controller');
+const makers = require('./makers');
 const {
   validateCreateProduct,
   validateUpdateProduct,
@@ -23,6 +24,9 @@ router.put('/:id/step2', validateProductStep2, asyncHandler(productController.up
 router.put('/:id/step3', validateProductStep3, asyncHandler(productController.updateProductStep3));
 router.put('/:id/step4', validateProductStep4, asyncHandler(productController.updateProductStep4));
 router.put('/:id/variants', asyncHandler(productController.updateVariants));
+// Made by: the piece-rate employees paid when it sells.
+router.get('/:id/makers', makers.get);
+router.put('/:id/makers', makers.put);
 router.delete('/:id', asyncHandler(productController.deleteProduct));
 router.post('/:id/restore', asyncHandler(restoreHandler('products', { label: 'product' })));
 

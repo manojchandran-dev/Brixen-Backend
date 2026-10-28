@@ -6,6 +6,7 @@ const { sendPayslipEmail } = require('../../utils/mailer');
 const { companyTz } = require('../attendance/service');
 const { LABEL } = require('../employees/salary');
 const { monthRange, weekRange, periodLabel, workingDaysIn, payFor, round2 } = require('./calc');
+const { soldBy } = require('./sold');
 
 // Salary generation: a run per company per period -- a month, or a week
 // (Monday to Sunday) -- with a payslip per employee with a salary type
@@ -98,6 +99,7 @@ function shapeSlip(p, run = p.payroll_runs) {
       : null,
     salary_type: p.salary_type,
     rate: p.rate === null ? null : Number(p.rate),
+    salary_period: p.salary_period ?? null,
     units: Number(p.units),
     days_present: Number(p.days_present),
     gross: Number(p.gross),
@@ -198,16 +200,8 @@ async function generate(company_id, user_id, body) {
     where: { company_id, work_date: { gte: from, lte: to } },
     include: { shifts: true, pieces: { include: { work_types: { select: { name: true } } } } },
   });
-  // Lots delivered in the period (piece work counted at delivery).
-  const lots = await prisma.piece_lots.findMany({
-    where: { company_id, lot_date: { gte: from, lte: to } },
-    include: { work_types: { select: { name: true } } },
-  });
-  const lotsBy = new Map();
-  for (const l of lots) {
-    if (!lotsBy.has(l.employee_id)) lotsBy.set(l.employee_id, []);
-    lotsBy.get(l.employee_id).push(l);
-  }
+  // Piece rate: the pieces sold (by bill date) of the products they make.
+  const soldTo = await soldBy(company_id, from, to);
   const byEmployee = new Map();
   for (const r of records) {
     if (!byEmployee.has(r.employee_id)) byEmployee.set(r.employee_id, []);
@@ -217,9 +211,9 @@ async function generate(company_id, user_id, body) {
     where: {
       company_id,
       salary_type: { not: null },
-      OR: [{ status: 'Active' }, { id: { in: [...byEmployee.keys(), ...lotsBy.keys()] } }],
+      OR: [{ status: 'Active' }, { id: { in: [...byEmployee.keys(), ...soldTo.keys()] } }],
     },
-    select: { id: true, salary_type: true, salary: true },
+    select: { id: true, salary_type: true, salary: true, salary_period: true },
   });
   if (!candidates.length) {
     throw new PayrollError('No employees with a salary type. Set salary types in Employees first');
@@ -238,7 +232,7 @@ async function generate(company_id, user_id, body) {
   const kept = new Map((existing?.payslips ?? []).map((p) => [p.employee_id, p]));
   const run_id = existing?.id ?? prefixedId('PRUN');
   const slips = employees.map((e) => {
-    const pay = payFor(e, byEmployee.get(e.id) ?? [], working_days, lotsBy.get(e.id) ?? []);
+    const pay = payFor(e, byEmployee.get(e.id) ?? [], working_days, soldTo.get(e.id) ?? []);
     const before = kept.get(e.id);
     const additions = before ? Number(before.additions) : 0;
     const deductions = before ? Math.min(Number(before.deductions), pay.gross + additions) : 0;
@@ -249,6 +243,7 @@ async function generate(company_id, user_id, body) {
       employee_id: e.id,
       salary_type: e.salary_type,
       rate: pay.rate,
+      salary_period: e.salary_period,
       units: pay.units,
       days_present: pay.days_present,
       gross: pay.gross,

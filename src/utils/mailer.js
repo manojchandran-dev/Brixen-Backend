@@ -140,10 +140,16 @@ async function sendPayslipEmail(to, { slip, typeLabel, companyName }) {
   }
   // "October 2026", or a week: "26 Oct – 1 Nov 2026".
   const monthName = slip.period_label ?? slip.month;
-  const per = { SHIFT_RATE: 'per shift', HOURLY: 'per hour', WEEKLY: 'per week', MONTHLY: 'per month' }[slip.salary_type];
+  const per = {
+    SHIFT_RATE: 'per shift',
+    PIECE_RATE: slip.salary_period === 'PER_DOZEN' ? 'per dozen' : 'per piece',
+    HOURLY: 'per hour',
+    WEEKLY: 'per week',
+    MONTHLY: 'per month',
+  }[slip.salary_type];
   const worked = {
     SHIFT_RATE: `Shifts worked: ${qty(slip.units)}`,
-    PIECE_RATE: `Pieces done: ${qty(slip.units)}`,
+    PIECE_RATE: `Pieces sold: ${qty(slip.units)}`,
     HOURLY: `Hours worked: ${qty(slip.units)}`,
     WEEKLY: `Days worked: ${qty(slip.units)}`,
     MONTHLY: `Days worked: ${qty(slip.units)} of ${slip.working_days}`,

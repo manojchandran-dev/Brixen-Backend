@@ -4,7 +4,8 @@ const asyncHandler = require('../../middleware/asyncHandler');
 const { success, error } = require('../../core/responses/apiResponse');
 const { dateIn } = require('../../utils/timezone');
 const attendance = require('../attendance/service');
-const lotsModule = require('../attendance/lots');
+const { soldBy } = require('../payroll/sold');
+const { perPiece } = require('../employees/salary');
 const payroll = require('../payroll/service');
 const { allows } = require('../../middleware/permission.middleware');
 
@@ -94,22 +95,22 @@ router.get(
         }),
         { days: 0, absent: 0, shifts: 0, pieces: 0, hours: 0, day_units: 0, amount: 0 }
       );
-      // Lots delivered in the range: their pieces and pay count too.
-      const lotRows = await prisma.piece_lots.findMany({
-        where: {
-          company_id: req.auth.companyId,
-          employee_id: req.auth.employeeId,
-          lot_date: { gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T00:00:00Z`) },
-        },
-        include: lotsModule.INCLUDE,
-        orderBy: { lot_date: 'desc' },
+      // Piece rate: the pieces sold of the products they make, at their rate.
+      let sold = [];
+      const me = await prisma.employees.findFirst({
+        where: { id: req.auth.employeeId, company_id: req.auth.companyId },
+        select: { salary_type: true, salary: true, salary_period: true },
       });
-      const lots = lotRows.map(lotsModule.shape);
-      const lotAmount = lots.reduce((a, l) => a + l.amount, 0);
-      totals.lot_pieces = lots.reduce((a, l) => a + l.pieces, 0);
-      totals.lot_amount = Math.round(lotAmount * 100) / 100;
-      totals.amount = Math.round((totals.amount + lotAmount) * 100) / 100;
-      return success(res, { items, lots, totals, meta: { ...meta, from, to } });
+      if (me?.salary_type === 'PIECE_RATE') {
+        const each = perPiece(me.salary, me.salary_period);
+        const lines = (
+          await soldBy(req.auth.companyId, new Date(`${from}T00:00:00Z`), new Date(`${to}T00:00:00Z`), req.auth.employeeId)
+        ).get(req.auth.employeeId) ?? [];
+        sold = lines.map((l) => ({ ...l, rate: Math.round(each * 10000) / 10000, amount: Math.round(l.pieces * each * 100) / 100 }));
+        totals.pieces = sold.reduce((a, l) => a + l.pieces, 0);
+        totals.amount = Math.round(sold.reduce((a, l) => a + l.amount, 0) * 100) / 100;
+      }
+      return success(res, { items, sold, totals, meta: { ...meta, from, to } });
     } catch (err) {
       if (err instanceof attendance.AttendanceError) return error(res, err.message, err.status);
       throw err;

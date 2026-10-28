@@ -6,9 +6,8 @@ const { DEFAULT_TZ, dateIn, localTime, parseDay } = require('../../utils/timezon
 // One record per employee per day (the company's local date). What it holds
 // follows the employee's salary type:
 //   SHIFT_RATE -- 1 to 3 shifts, each from 1/4 to 3 shifts in quarters;
-//   PIECE_RATE -- one or more work types with the quantity done; each line
-//                 keeps the work type's rate as it was, so amount = qty x rate
-//                 doesn't change when the rate does later;
+//   PIECE_RATE -- just present: their pay comes from the sales of the
+//                 products they make (salary generation);
 //   HOURLY     -- the hours worked (1/4 hour steps, up to 24);
 //   WEEKLY / MONTHLY -- a full day (1) or a half day (0.5).
 // Or the employee was ABSENT (status): nothing is recorded and the day
@@ -24,7 +23,6 @@ class AttendanceError extends Error {
 // 1/4, 1/2, 3/4, 1, 1 1/4 ... 2 3/4, 3.
 const SHIFT_UNITS = Array.from({ length: 12 }, (_, i) => (i + 1) / 4);
 const MAX_SHIFTS = 3;
-const MAX_QUANTITY = 1000000;
 const MAX_HOURS = 24;
 const DAY_UNITS = [0.5, 1];
 const DAY_KINDS = ['WEEKLY', 'MONTHLY'];
@@ -80,9 +78,7 @@ function shape(r) {
   const absent = r.status === 'ABSENT';
   const amount = absent
     ? null
-    : r.kind === 'PIECE_RATE'
-      ? round2(pieces.reduce((a, p) => a + p.amount, 0))
-      : r.kind === 'SHIFT_RATE' && rate
+    : r.kind === 'SHIFT_RATE' && rate
         ? round2(totalShifts * rate)
         : r.kind === 'HOURLY' && rate && hours !== null
           ? round2(hours * rate)
@@ -165,29 +161,12 @@ async function entries(company_id, kind, body, previous = []) {
     };
   }
 
-  // PIECE_RATE
-  if (shifts.length) throw new AttendanceError('This employee is paid by piece: record work types and quantities, not shifts');
-  if (!pieces.length) throw new AttendanceError('Add at least one work type with its quantity');
-  const ids = pieces.map((p) => String(p?.work_type_id ?? ''));
-  if (new Set(ids).size !== ids.length) throw new AttendanceError('A work type is listed twice. Add its quantities together');
-  const types = await prisma.work_types.findMany({ where: { company_id, id: { in: ids } } });
-  const byId = new Map(types.map((t) => [t.id, t]));
-  const kept = new Map(previous.map((p) => [p.work_type_id, p]));
-  return {
-    ...none,
-    pieces: pieces.map((p, i) => {
-      const type = byId.get(ids[i]);
-      const before = kept.get(ids[i]);
-      if (!type && !before) throw new AttendanceError(`Line ${i + 1}: pick a work type from the Work Type master`);
-      if (type && type.status !== 'ACTIVE' && !before) throw new AttendanceError(`Work type "${type.name}" is inactive`);
-      const quantity = Number(p.quantity);
-      if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) {
-        throw new AttendanceError(`Line ${i + 1}: quantity must be a whole number from 1 to ${MAX_QUANTITY}`);
-      }
-      const rate = before ? Number(before.rate) : Number(type.rate);
-      return { id: prefixedId('ATPC'), work_type_id: ids[i], quantity, rate, amount: round2(quantity * rate) };
-    }),
-  };
+  // PIECE_RATE: paid on the sales of the products they make, so the day is
+  // just present (absent is handled above).
+  if (shifts.length || pieces.length) {
+    throw new AttendanceError("A piece-rate employee is paid from sales: just mark them present or absent");
+  }
+  return none;
 }
 
 async function findEmployee(employee_id, company_id) {

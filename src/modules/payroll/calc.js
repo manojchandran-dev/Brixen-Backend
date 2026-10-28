@@ -1,12 +1,15 @@
 // What one employee earns for a payroll month, from their attendance:
 //   SHIFT_RATE  shifts worked x the per-shift salary;
-//   PIECE_RATE  each work type's pieces x its rate (as recorded that day);
+//   PIECE_RATE  pieces sold of the products they make x their rate per piece
+//               (per dozen / 12) -- by the sales' bill dates;
 //   HOURLY      hours worked x the hourly salary;
 //   WEEKLY      days present x (weekly salary / 6 working days);
 //   MONTHLY     days present x (monthly salary / the month's working days).
 // A half day counts 0.5; an absent day counts nothing. Records of another kind (the employee's salary
 // type changed mid-month) still count as days present, but add no shifts,
 // hours or pieces.
+
+const { perPiece } = require('../employees/salary');
 
 const WEEK_WORKING_DAYS = 6;
 
@@ -53,12 +56,12 @@ function workingDaysIn(month) {
 }
 
 // [records]: attendance rows with shifts and pieces (pieces carrying
-// work_types.name); [lots]: piece_lots delivered in the period. Returns the
-// payslip's figures.
-function payFor({ salary_type: type, salary }, allRecords, workingDays, lots = []) {
+// work_types.name); [sold]: for piece rate, the pieces sold of the products
+// they make (sold.js). Returns the payslip's figures.
+function payFor({ salary_type: type, salary, salary_period: period }, allRecords, workingDays, sold = []) {
   // An absent day earns nothing and isn't a day present.
   const records = allRecords.filter((r) => r.status !== 'ABSENT');
-  const rate = type === 'PIECE_RATE' || salary === null || salary === undefined ? null : Number(salary);
+  const rate = salary === null || salary === undefined ? null : Number(salary);
   const daysPresent = records.reduce((a, r) => a + (r.day_units === null || r.day_units === undefined ? 1 : num(r.day_units)), 0);
   let units = 0;
   let gross = 0;
@@ -70,24 +73,16 @@ function payFor({ salary_type: type, salary }, allRecords, workingDays, lots = [
       gross = units * (rate ?? 0);
       break;
     case 'PIECE_RATE': {
-      // One line per work type and rate (a rate change mid-month = two lines).
-      const lines = new Map();
-      for (const r of records) {
-        for (const p of r.pieces ?? []) {
-          const key = `${p.work_type_id}@${num(p.rate)}`;
-          const line = lines.get(key) ?? {
-            work_type_id: p.work_type_id,
-            name: p.work_types?.name ?? 'Work type',
-            quantity: 0,
-            rate: num(p.rate),
-            amount: 0,
-          };
-          line.quantity += p.quantity;
-          line.amount = round2(line.amount + num(p.amount));
-          lines.set(key, line);
-        }
-      }
-      breakdown = [...lines.values()];
+      // Pieces sold of the products they make, at their rate per piece
+      // (a rate per dozen / 12). A line per product.
+      const each = perPiece(salary, period);
+      breakdown = sold.map((s) => ({
+        product_id: s.product_id,
+        name: s.name,
+        quantity: s.pieces,
+        rate: Math.round(each * 10000) / 10000,
+        amount: round2(s.pieces * each),
+      }));
       units = breakdown.reduce((a, l) => a + l.quantity, 0);
       gross = breakdown.reduce((a, l) => a + l.amount, 0);
       break;
@@ -108,29 +103,6 @@ function payFor({ salary_type: type, salary }, allRecords, workingDays, lots = [
       break;
   }
 
-  // Lots delivered in the period (piece_lots), on top of whatever the
-  // salary type earns: a line each per work type and rate, marked "lots".
-  if (lots.length) {
-    const lines = new Map();
-    for (const l of lots) {
-      const key = `${l.work_type_id}@${num(l.rate)}`;
-      const line = lines.get(key) ?? {
-        work_type_id: l.work_type_id,
-        name: `${l.work_types?.name ?? 'Work type'} (lots)`,
-        quantity: 0,
-        rate: num(l.rate),
-        amount: 0,
-      };
-      line.quantity += l.pieces;
-      line.amount = round2(line.amount + num(l.amount));
-      lines.set(key, line);
-    }
-    const lotLines = [...lines.values()];
-    breakdown = [...(breakdown ?? []), ...lotLines];
-    const lotPieces = lotLines.reduce((a, l) => a + l.quantity, 0);
-    if (type === 'PIECE_RATE') units += lotPieces;
-    gross += lotLines.reduce((a, l) => a + l.amount, 0);
-  }
   return { rate, units: round2(units), days_present: round2(daysPresent), gross: round2(gross), breakdown };
 }
 
