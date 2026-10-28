@@ -21,6 +21,27 @@ function monthRange(month) {
   return { from: `${month}-01`, to: `${month}-${String(days).padStart(2, '0')}`, days };
 }
 
+// "2026-10-26" (a Monday) -> { from: "2026-10-26", to: "2026-11-01" }, or
+// null for anything else.
+function weekRange(start) {
+  if (typeof start !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
+  const d = new Date(`${start}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== start || d.getUTCDay() !== 1) return null;
+  const end = new Date(d.getTime() + 6 * 24 * 60 * 60 * 1000);
+  return { from: start, to: end.toISOString().slice(0, 10) };
+}
+
+// A run's key as people say it: "October 2026", or the week
+// "26 Oct – 1 Nov 2026".
+function periodLabel(key) {
+  const fmt = (iso, opts) => new Date(`${iso}T00:00:00Z`).toLocaleString('en-IN', { ...opts, timeZone: 'UTC' });
+  const week = weekRange(key);
+  if (week) {
+    return `${fmt(week.from, { day: 'numeric', month: 'short' })} – ${fmt(week.to, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }
+  return monthRange(key) ? fmt(`${key}-01`, { month: 'long', year: 'numeric' }) : String(key);
+}
+
 // The month's days less its Sundays.
 function workingDaysIn(month) {
   const r = monthRange(month);
@@ -86,4 +107,4 @@ function payFor({ salary_type: type, salary }, records, workingDays) {
   return { rate, units: round2(units), days_present: round2(daysPresent), gross: round2(gross), breakdown };
 }
 
-module.exports = { WEEK_WORKING_DAYS, monthRange, workingDaysIn, payFor, round2 };
+module.exports = { WEEK_WORKING_DAYS, monthRange, weekRange, periodLabel, workingDaysIn, payFor, round2 };

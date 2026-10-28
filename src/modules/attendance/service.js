@@ -5,7 +5,7 @@ const { DEFAULT_TZ, dateIn, localTime, parseDay } = require('../../utils/timezon
 
 // One record per employee per day (the company's local date). What it holds
 // follows the employee's salary type:
-//   SHIFT_RATE -- 1 to 3 shifts, each 1/4, 1/2, 3/4, 1, 2 or 3 shifts;
+//   SHIFT_RATE -- 1 to 3 shifts, each from 1/4 to 3 shifts in quarters;
 //   PIECE_RATE -- one or more work types with the quantity done; each line
 //                 keeps the work type's rate as it was, so amount = qty x rate
 //                 doesn't change when the rate does later;
@@ -19,7 +19,8 @@ class AttendanceError extends Error {
   }
 }
 
-const SHIFT_UNITS = [0.25, 0.5, 0.75, 1, 2, 3];
+// 1/4, 1/2, 3/4, 1, 1 1/4 ... 2 3/4, 3.
+const SHIFT_UNITS = Array.from({ length: 12 }, (_, i) => (i + 1) / 4);
 const MAX_SHIFTS = 3;
 const MAX_QUANTITY = 1000000;
 const MAX_HOURS = 24;
@@ -142,7 +143,7 @@ async function entries(company_id, kind, body, previous = []) {
     return {
       shifts: shifts.map((s, i) => {
         const units = Number(typeof s === 'object' && s !== null ? s.units : s);
-        if (!SHIFT_UNITS.includes(units)) throw new AttendanceError(`Shift ${i + 1} must be 1/4, 1/2, 3/4, 1, 2 or 3 shifts`);
+        if (!SHIFT_UNITS.includes(units)) throw new AttendanceError(`Shift ${i + 1} must be from 1/4 to 3 shifts, in quarters`);
         return { id: prefixedId('ATSH'), shift_no: i + 1, units };
       }),
       pieces: [],

@@ -129,6 +129,8 @@ async function getEmployees(company_id, { page = 1, deleted = false, limit = 20,
       department: exact(filters.department),
       employment_type: choice('employment_type', filters.employment_type, EMPLOYMENT_TYPES),
       salary_type: choice('salary_type', filters.salary_type, SALARY_TYPES),
+      // ?from=&to= (YYYY-MM-DD): joined in that range.
+      joining_date: dateRange(filters.from, filters.to),
     }),
     ...(search
       ? {
@@ -230,6 +232,22 @@ async function activateLogin(employee_id, company_id) {
   });
   if (taken) throw new EmployeeError(`${email} is already used by another login`, 409);
 
+  // One setup email a minute: a second request close behind (a double tap,
+  // a request sent twice) gets the login as it is, not a second email with
+  // a different password. Claimed in one write, so two at once can't both
+  // pass.
+  if (existing && !existing.deleted_at) {
+    const claimed = await prisma.users.updateMany({
+      where: {
+        id: existing.id,
+        deleted_at: null,
+        OR: [{ setup_email_sent_at: null }, { setup_email_sent_at: { lt: new Date(Date.now() - 60 * 1000) } }],
+      },
+      data: { setup_email_sent_at: new Date() },
+    });
+    if (!claimed.count) return loginOf(employee_id);
+  }
+
   const tempPassword = generateSecurePassword();
   const data = {
     email,
@@ -238,7 +256,8 @@ async function activateLogin(employee_id, company_id) {
     company_id,
     password_hash: await bcrypt.hash(tempPassword, 10),
     must_change_password: true,
-    setup_email_sent_at: null,
+    // Kept as the claim above until the send settles (cleared if it fails).
+    setup_email_sent_at: new Date(),
     setup_email_error: null,
   };
   if (existing) {
@@ -258,7 +277,8 @@ async function activateLogin(employee_id, company_id) {
     });
   } catch (err) {
     const reason = String(err?.message ?? err).slice(0, 300);
-    await prisma.users.updateMany({ where: { employee_id }, data: { setup_email_error: reason } });
+    // Not sent: an immediate Resend is allowed.
+    await prisma.users.updateMany({ where: { employee_id }, data: { setup_email_error: reason, setup_email_sent_at: null } });
     throw new EmployeeError(`Couldn't send the setup email to ${email} (${reason}). Check the address and tap Resend.`, 502);
   }
   await prisma.users.updateMany({ where: { employee_id }, data: { setup_email_sent_at: new Date(), setup_email_error: null } });

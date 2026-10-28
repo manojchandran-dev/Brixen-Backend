@@ -24,10 +24,11 @@ const handle = (fn) =>
 
 router.get('/runs', handle(async (req, res, company_id) => success(res, await service.listRuns(company_id))));
 
-// ?month=YYYY-MM: its default working days and whether a run exists.
+// ?month=YYYY-MM or ?week_start=YYYY-MM-DD: its default working days and
+// whether a run exists.
 router.get(
   '/preview',
-  handle(async (req, res, company_id) => success(res, await service.preview(company_id, String(req.query.month ?? ''))))
+  handle(async (req, res, company_id) => success(res, await service.preview(company_id, req.query)))
 );
 
 router.post(

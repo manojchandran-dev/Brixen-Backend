@@ -112,7 +112,7 @@ async function createProduct(company_id, data, actorId = null) {
 const PRODUCT_STATUSES = ['Active', 'Inactive'];
 const PRODUCT_GENDERS = ['Men', 'Women', 'Unisex', 'Kids'];
 
-// filters: category_id, status, gender.
+// filters: category_id, status, gender, from / to (date added).
 async function getProducts(company_id, { page = 1, deleted = false, limit = 20, search = '', category_id, status, filters = {} }) {
   const take = Math.min(Math.max(limit, 1), 100);
   const skip = (Math.max(page, 1) - 1) * take;
@@ -125,6 +125,8 @@ async function getProducts(company_id, { page = 1, deleted = false, limit = 20, 
     ...compact({
       status: choice('status', status, PRODUCT_STATUSES),
       gender: choice('gender', filters.gender, PRODUCT_GENDERS),
+      // ?from=&to= (YYYY-MM-DD): added in that range (IST days).
+      created_at: dayRangeIST(filters.from, filters.to),
     }),
     ...(search
       ? {

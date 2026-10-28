@@ -111,7 +111,7 @@ router.get(
           select: { id: true, employee_code: true, first_name: true, last_name: true, email: true, department: true, designation: true },
         },
       },
-      orderBy: { payroll_runs: { month: 'desc' } },
+      orderBy: { payroll_runs: { period_from: 'desc' } },
       take: 60,
     });
     return success(res, { items: rows.map((p) => payroll.shapeSlip(p)) });

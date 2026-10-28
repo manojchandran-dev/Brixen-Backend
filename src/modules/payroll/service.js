@@ -5,13 +5,16 @@ const { dateIn, parseDay } = require('../../utils/timezone');
 const { sendPayslipEmail } = require('../../utils/mailer');
 const { companyTz } = require('../attendance/service');
 const { LABEL } = require('../employees/salary');
-const { monthRange, workingDaysIn, payFor, round2 } = require('./calc');
+const { monthRange, weekRange, periodLabel, workingDaysIn, payFor, round2 } = require('./calc');
 
-// Salary generation: one run per company per month, a payslip per employee
-// with a salary type (active, or anyone with attendance that month). A DRAFT
-// run can be generated again (additions, deductions and notes are kept per
-// employee) and its payslips adjusted; FINALIZED locks it, lets payslips be
-// emailed and counts it in the salary report. Reopen to change it again.
+// Salary generation: a run per company per period -- a month, or a week
+// (Monday to Sunday) -- with a payslip per employee with a salary type
+// (active, or anyone with attendance in it). An employee already paid by
+// another run covering any of the same days is left out, so nobody is paid
+// twice for a day. A DRAFT run can be generated again (additions,
+// deductions and notes are kept per employee) and its payslips adjusted;
+// FINALIZED locks it, lets payslips be emailed and counts it in the salary
+// report. Reopen to change it again.
 
 class PayrollError extends Error {
   constructor(message, status = 400) {
@@ -39,10 +42,26 @@ const EMPLOYEE = {
   },
 };
 
+// The period a request names: ?week_start= (a Monday) for a week, else
+// ?month= (YYYY-MM). key = the run's month column.
+function resolvePeriod(input) {
+  if (input.week_start !== undefined && input.week_start !== null && input.week_start !== '') {
+    const week = weekRange(String(input.week_start));
+    if (!week) throw new PayrollError('week_start must be a Monday as YYYY-MM-DD');
+    const month = week.from.slice(0, 7);
+    return { key: week.from, period_type: 'WEEK', ...week, month, monthDays: monthRange(month).days };
+  }
+  const range = monthRange(input.month);
+  if (!range) throw new PayrollError('Pick a month (YYYY-MM) or a week');
+  return { key: input.month, period_type: 'MONTH', from: range.from, to: range.to, month: input.month, monthDays: range.days };
+}
+
 function shapeRun(run) {
   return {
     id: run.id,
     month: run.month,
+    period_type: run.period_type ?? 'MONTH',
+    label: periodLabel(run.month),
     period_from: ymd(run.period_from),
     period_to: ymd(run.period_to),
     working_days: run.working_days,
@@ -61,6 +80,8 @@ function shapeSlip(p, run = p.payroll_runs) {
     id: p.id,
     run_id: p.run_id,
     month: run?.month ?? null,
+    period_type: run?.period_type ?? 'MONTH',
+    period_label: run ? periodLabel(run.month) : null,
     period_from: ymd(run?.period_from),
     period_to: ymd(run?.period_to),
     working_days: run?.working_days ?? null,
@@ -108,7 +129,7 @@ async function listRuns(company_id) {
   const runs = await prisma.payroll_runs.findMany({
     where: { company_id },
     include: { _count: { select: { payslips: true } } },
-    orderBy: { month: 'desc' },
+    orderBy: { period_from: 'desc' },
   });
   return { items: runs.map(shapeRun) };
 }
@@ -125,41 +146,54 @@ async function getRun(id, company_id) {
   return { ...shapeRun(run), payslips };
 }
 
-// The month's working days by default, for the generate screen.
-async function preview(company_id, month) {
-  const range = monthRange(month);
-  if (!range) throw new PayrollError('month must be YYYY-MM');
-  const existing = await prisma.payroll_runs.findFirst({ where: { company_id, month }, select: { id: true, status: true } });
-  return { month, ...range, working_days: workingDaysIn(month), run: existing };
+// The period's default working days (its month less Sundays: what a monthly
+// salary is divided by) and its run if any, for the generate screen.
+// ?month=YYYY-MM or ?week_start=YYYY-MM-DD (a Monday).
+async function preview(company_id, query) {
+  const p = resolvePeriod(query);
+  const existing = await prisma.payroll_runs.findFirst({ where: { company_id, month: p.key }, select: { id: true, status: true } });
+  return { ...p, label: periodLabel(p.key), working_days: workingDaysIn(p.month), run: existing };
 }
 
-// Works out (again) the month's payslips. body: { month: "YYYY-MM",
-// working_days?: 1-31 }.
+// Works out (again) the period's payslips. body: { month: "YYYY-MM" } or
+// { week_start: "YYYY-MM-DD" (a Monday) }, working_days?: 1-31 (a monthly
+// salary's divisor; default its month less Sundays). The response adds
+// `skipped`: employees left out because another run already pays them for
+// some of these days.
 async function generate(company_id, user_id, body) {
-  const month = body.month;
-  const range = monthRange(month);
-  if (!range) throw new PayrollError('Pick a month (YYYY-MM)');
+  const p = resolvePeriod(body);
+  const label = periodLabel(p.key);
   const today = dateIn(await companyTz(company_id));
-  if (range.from > today) throw new PayrollError("Salary can't be generated for a month that hasn't started");
+  if (p.from > today) throw new PayrollError(`Salary can't be generated for ${label}: it hasn't started`);
 
-  let working_days = workingDaysIn(month);
+  let working_days = workingDaysIn(p.month);
   if (body.working_days !== undefined && body.working_days !== null && body.working_days !== '') {
     working_days = Number(body.working_days);
-    if (!Number.isInteger(working_days) || working_days < 1 || working_days > range.days) {
-      throw new PayrollError(`Working days must be a whole number from 1 to ${range.days}`);
+    if (!Number.isInteger(working_days) || working_days < 1 || working_days > p.monthDays) {
+      throw new PayrollError(`Working days must be a whole number from 1 to ${p.monthDays}`);
     }
   }
 
   const existing = await prisma.payroll_runs.findFirst({
-    where: { company_id, month },
+    where: { company_id, month: p.key },
     include: { payslips: { select: { employee_id: true, additions: true, deductions: true, notes: true } } },
   });
   if (existing?.status === FINALIZED) {
-    throw new PayrollError(`${month} is already finalized. Reopen it to generate again`, 409);
+    throw new PayrollError(`${label} is already confirmed. Tap Edit again to generate it again`, 409);
   }
 
-  const from = parseDay(range.from);
-  const to = parseDay(range.to);
+  const from = parseDay(p.from);
+  const to = parseDay(p.to);
+  // Paid by another run that covers any of these days: left out.
+  const paidElsewhere = await prisma.payslips.findMany({
+    where: {
+      company_id,
+      ...(existing ? { run_id: { not: existing.id } } : {}),
+      payroll_runs: { period_from: { lte: to }, period_to: { gte: from } },
+    },
+    select: { employee_id: true, payroll_runs: { select: { month: true } }, employees: EMPLOYEE },
+  });
+  const paidBy = new Map(paidElsewhere.map((s) => [s.employee_id, s]));
   const records = await prisma.attendance.findMany({
     where: { company_id, work_date: { gte: from, lte: to } },
     include: { shifts: true, pieces: { include: { work_types: { select: { name: true } } } } },
@@ -169,7 +203,7 @@ async function generate(company_id, user_id, body) {
     if (!byEmployee.has(r.employee_id)) byEmployee.set(r.employee_id, []);
     byEmployee.get(r.employee_id).push(r);
   }
-  const employees = await prisma.employees.findMany({
+  const candidates = await prisma.employees.findMany({
     where: {
       company_id,
       salary_type: { not: null },
@@ -177,8 +211,18 @@ async function generate(company_id, user_id, body) {
     },
     select: { id: true, salary_type: true, salary: true },
   });
-  if (!employees.length) {
+  if (!candidates.length) {
     throw new PayrollError('No employees with a salary type. Set salary types in Employees first');
+  }
+  const employees = candidates.filter((e) => !paidBy.has(e.id));
+  const skipped = candidates
+    .filter((e) => paidBy.has(e.id))
+    .map((e) => {
+      const s = paidBy.get(e.id);
+      return { employee_id: e.id, name: fullName(s.employees), paid_in: periodLabel(s.payroll_runs.month) };
+    });
+  if (!employees.length) {
+    throw new PayrollError(`Everyone is already paid for these days (in ${[...new Set(skipped.map((s) => s.paid_in))].join(', ')})`, 409);
   }
 
   const kept = new Map((existing?.payslips ?? []).map((p) => [p.employee_id, p]));
@@ -213,7 +257,16 @@ async function generate(company_id, user_id, body) {
         await tx.payroll_runs.update({ where: { id: run_id }, data: { working_days, updated_at: new Date() } });
       } else {
         await tx.payroll_runs.create({
-          data: { id: run_id, company_id, month, period_from: from, period_to: to, working_days, created_by: user_id },
+          data: {
+            id: run_id,
+            company_id,
+            month: p.key,
+            period_type: p.period_type,
+            period_from: from,
+            period_to: to,
+            working_days,
+            created_by: user_id,
+          },
         });
       }
       await tx.payslips.createMany({ data: slips });
@@ -222,11 +275,11 @@ async function generate(company_id, user_id, body) {
   } catch (err) {
     // Generated by someone else at the same moment.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      throw new PayrollError(`Salary for ${month} is being generated already. Refresh and try again`, 409);
+      throw new PayrollError(`Salary for ${label} is being generated already. Refresh and try again`, 409);
     }
     throw err;
   }
-  return getRun(run_id, company_id);
+  return { ...(await getRun(run_id, company_id)), skipped };
 }
 
 const money = (v, field) => {
@@ -262,7 +315,7 @@ async function updatePayslip(id, company_id, body) {
 
 async function finalize(id, company_id) {
   const run = await findRun(id, company_id);
-  if (run.status === FINALIZED) throw new PayrollError(`${run.month} is already finalized`, 409);
+  if (run.status === FINALIZED) throw new PayrollError(`${periodLabel(run.month)} is already confirmed`, 409);
   const count = await prisma.payslips.count({ where: { run_id: id } });
   if (!count) throw new PayrollError('There are no payslips to finalize. Generate again');
   await prisma.payroll_runs.update({ where: { id }, data: { status: FINALIZED, finalized_at: new Date(), updated_at: new Date() } });
@@ -271,7 +324,7 @@ async function finalize(id, company_id) {
 
 async function reopen(id, company_id) {
   const run = await findRun(id, company_id);
-  if (run.status !== FINALIZED) throw new PayrollError(`${run.month} isn't finalized`, 409);
+  if (run.status !== FINALIZED) throw new PayrollError(`${periodLabel(run.month)} isn't confirmed`, 409);
   await prisma.payroll_runs.update({ where: { id }, data: { status: DRAFT, finalized_at: null, updated_at: new Date() } });
   return getRun(id, company_id);
 }
@@ -333,7 +386,7 @@ async function listPayslips(company_id, q = {}) {
       },
     },
     include: { employees: EMPLOYEE, payroll_runs: true },
-    orderBy: [{ payroll_runs: { month: 'desc' } }, { net: 'desc' }],
+    orderBy: [{ payroll_runs: { period_from: 'desc' } }, { net: 'desc' }],
     take: 5000,
   });
   return { items: rows.map((p) => shapeSlip(p)) };

@@ -138,8 +138,8 @@ async function sendPayslipEmail(to, { slip, typeLabel, companyName }) {
   if (!resend) {
     throw new Error('Email is not set up on the server (RESEND_API_KEY is missing)');
   }
-  const [y, m] = slip.month.split('-').map(Number);
-  const monthName = new Date(Date.UTC(y, m - 1, 1)).toLocaleString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  // "October 2026", or a week: "26 Oct – 1 Nov 2026".
+  const monthName = slip.period_label ?? slip.month;
   const per = { SHIFT_RATE: 'per shift', HOURLY: 'per hour', WEEKLY: 'per week', MONTHLY: 'per month' }[slip.salary_type];
   const worked = {
     SHIFT_RATE: `Shifts worked: ${qty(slip.units)}`,

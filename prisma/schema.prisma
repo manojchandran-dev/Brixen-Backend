@@ -793,7 +793,7 @@ model employee_permissions {
   @@unique([employee_id, module_id])
 }
 
-// One month's salary generation for a company: a payslip per employee,
+// One month's (or week's) salary generation for a company: a payslip per employee,
 // worked out from attendance. DRAFT while it's reviewed (additions and
 // deductions can change, or it can be generated again); FINALIZED once
 // confirmed -- then payslips can be sent and count in the salary report.
@@ -801,8 +801,11 @@ model payroll_runs {
   id           String     @id @db.VarChar(16)
   company_id   Int
   companies    companies  @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  // "2026-10"
-  month        String     @db.VarChar(7)
+  // The period's key: "2026-10" (a month) or "2026-10-26" (the week from
+  // that Monday).
+  month        String     @db.VarChar(10)
+  // MONTH or WEEK.
+  period_type  String     @default("MONTH") @db.VarChar(10)
   period_from  DateTime   @db.Date
   period_to    DateTime   @db.Date
   // A monthly salary is per these days (the month less its Sundays, unless
