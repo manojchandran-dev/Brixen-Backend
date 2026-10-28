@@ -11,7 +11,8 @@ const { newProductCode } = require('../../utils/productCode');
 
 const MAX_ID_ATTEMPTS = 5;
 
-const STEP2_FIELDS = ['unit_id', 'color', 'size'];
+// combo_size: pieces in a combo (1-100), or null = sold per piece.
+const STEP2_FIELDS = ['unit_id', 'color', 'size', 'combo_size'];
 const STEP3_FIELDS = ['cost_price', 'retail_price', 'wholesale_price'];
 const STEP4_FIELDS = ['gallery_urls', 'status'];
 

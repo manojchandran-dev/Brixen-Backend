@@ -1,15 +1,12 @@
 // What one employee earns for a payroll month, from their attendance:
 //   SHIFT_RATE  shifts worked x the per-shift salary;
-//   PIECE_RATE  pieces sold of the products they make x their rate per piece
-//               (per dozen / 12) -- by the sales' bill dates;
+//   (PIECE_RATE is paid apart, after sales: see piecePays.js.)
 //   HOURLY      hours worked x the hourly salary;
 //   WEEKLY      days present x (weekly salary / 6 working days);
 //   MONTHLY     days present x (monthly salary / the month's working days).
 // A half day counts 0.5; an absent day counts nothing. Records of another kind (the employee's salary
 // type changed mid-month) still count as days present, but add no shifts,
 // hours or pieces.
-
-const { perPiece } = require('../employees/salary');
 
 const WEEK_WORKING_DAYS = 6;
 
@@ -56,9 +53,8 @@ function workingDaysIn(month) {
 }
 
 // [records]: attendance rows with shifts and pieces (pieces carrying
-// work_types.name); [sold]: for piece rate, the pieces sold of the products
-// they make (sold.js). Returns the payslip's figures.
-function payFor({ salary_type: type, salary, salary_period: period }, allRecords, workingDays, sold = []) {
+// work_types.name). Returns the payslip's figures.
+function payFor({ salary_type: type, salary }, allRecords, workingDays) {
   // An absent day earns nothing and isn't a day present.
   const records = allRecords.filter((r) => r.status !== 'ABSENT');
   const rate = salary === null || salary === undefined ? null : Number(salary);
@@ -72,21 +68,6 @@ function payFor({ salary_type: type, salary, salary_period: period }, allRecords
       units = records.reduce((a, r) => a + (r.shifts ?? []).reduce((b, s) => b + num(s.units), 0), 0);
       gross = units * (rate ?? 0);
       break;
-    case 'PIECE_RATE': {
-      // Pieces sold of the products they make, at their rate per piece
-      // (a rate per dozen / 12). A line per product.
-      const each = perPiece(salary, period);
-      breakdown = sold.map((s) => ({
-        product_id: s.product_id,
-        name: s.name,
-        quantity: s.pieces,
-        rate: Math.round(each * 10000) / 10000,
-        amount: round2(s.pieces * each),
-      }));
-      units = breakdown.reduce((a, l) => a + l.quantity, 0);
-      gross = breakdown.reduce((a, l) => a + l.amount, 0);
-      break;
-    }
     case 'HOURLY':
       units = records.reduce((a, r) => a + num(r.hours), 0);
       gross = units * (rate ?? 0);

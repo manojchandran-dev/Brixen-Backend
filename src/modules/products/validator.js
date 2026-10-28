@@ -69,6 +69,13 @@ function validateStock(body, errors) {
 }
 
 // Step 1 — Basic Info
+// combo_size: null (sold per piece) or a whole number of pieces, 1 to 100.
+function validateComboSize(body, errors) {
+  const v = body.combo_size;
+  if (v === undefined || v === null) return;
+  if (!Number.isInteger(v) || v < 1 || v > 100) errors.push('combo_size must be a whole number of pieces from 1 to 100, or null');
+}
+
 function validateCreateProduct(req, res, next) {
   const { product_name, company_id } = req.body;
   const errors = [];
@@ -107,6 +114,7 @@ function validateUpdateProduct(req, res, next) {
 
   validateId(req.body, 'category_id', errors);
   validateId(req.body, 'unit_id', errors);
+  validateComboSize(req.body, errors);
   validateEnum(req.body, 'gender', GENDERS, errors);
   validateEnum(req.body, 'status', STATUSES, errors);
   validateOptionalString(req.body, 'design_pattern', errors);
@@ -130,6 +138,7 @@ function validateProductStep2(req, res, next) {
   const errors = [];
 
   validateId(req.body, 'unit_id', errors);
+  validateComboSize(req.body, errors);
   validateOptionalString(req.body, 'color', errors);
   validateOptionalString(req.body, 'size', errors);
 

@@ -74,6 +74,7 @@ model companies {
   employee_permissions    employee_permissions[]
   payroll_runs            payroll_runs[]
   payslips                payslips[]
+  piece_pays              piece_pays[]
 }
 
 model users {
@@ -234,6 +235,9 @@ model products {
   stock_quantity      Int                 @default(0)
   // At or below this is "low stock" in reports.
   low_stock_threshold Int                 @default(5)
+  // Sold as a combo of this many pieces (1-100); null = per piece. Piece
+  // pay can be entered in combos of it (x this many pieces).
+  combo_size          Int?
   gallery_urls        String[]
   status              String?             @default("Active") @db.VarChar(20)
   onboarding_status   String?             @default("pending") @db.VarChar(20)
@@ -243,7 +247,7 @@ model products {
   purchase_items      purchase_items[]
   stock_movements     stock_movements[]
   product_variants    product_variants[]
-  product_makers      product_makers[]
+  piece_pays          piece_pays[]
 
   @@unique([company_id, product_code])
 }
@@ -323,7 +327,7 @@ model employees {
   attendance              attendance[]
   employee_permissions    employee_permissions[]
   payslips                payslips[]
-  product_makers          product_makers[]
+  piece_pays              piece_pays[]
 
   @@unique([company_id, employee_code])
 }
@@ -356,6 +360,7 @@ model work_types {
   created_at        DateTime?           @default(now()) @db.Timestamp(6)
   updated_at        DateTime?           @default(now()) @db.Timestamp(6)
   attendance_pieces attendance_pieces[]
+  piece_pays        piece_pays[]
 }
 
 // One employee's attendance for one day (the company's local date). Shift-
@@ -831,45 +836,64 @@ model payroll_runs {
 // or days, by [salary_type]; [rate] is the salary amount then (null for
 // piece rate). net = gross + additions - deductions.
 model payslips {
-  id            String       @id @db.VarChar(16)
-  run_id        String       @db.VarChar(16)
-  payroll_runs  payroll_runs @relation(fields: [run_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  company_id    Int
-  companies     companies    @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  employee_id   Int
-  employees     employees    @relation(fields: [employee_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  salary_type   String       @db.VarChar(20)
-  rate          Decimal?     @db.Decimal(12, 2)
-  // What [rate] is per (PER_PIECE / PER_DOZEN for piece rate), as then.
-  salary_period String?      @db.VarChar(20)
-  units         Decimal      @default(0) @db.Decimal(12, 2)
-  days_present  Decimal      @default(0) @db.Decimal(6, 2)
-  gross         Decimal      @default(0) @db.Decimal(12, 2)
-  additions     Decimal      @default(0) @db.Decimal(12, 2)
-  deductions    Decimal      @default(0) @db.Decimal(12, 2)
-  net           Decimal      @default(0) @db.Decimal(12, 2)
+  id           String       @id @db.VarChar(16)
+  run_id       String       @db.VarChar(16)
+  payroll_runs payroll_runs @relation(fields: [run_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_id   Int
+  companies    companies    @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  employee_id  Int
+  employees    employees    @relation(fields: [employee_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  salary_type  String       @db.VarChar(20)
+  rate         Decimal?     @db.Decimal(12, 2)
+  units        Decimal      @default(0) @db.Decimal(12, 2)
+  days_present Decimal      @default(0) @db.Decimal(6, 2)
+  gross        Decimal      @default(0) @db.Decimal(12, 2)
+  additions    Decimal      @default(0) @db.Decimal(12, 2)
+  deductions   Decimal      @default(0) @db.Decimal(12, 2)
+  net          Decimal      @default(0) @db.Decimal(12, 2)
   // Piece rate: [{ work_type_id, name, quantity, rate, amount }].
-  breakdown     Json?
-  notes         String?
-  emailed_at    DateTime?    @db.Timestamp(6)
-  email_error   String?
-  created_at    DateTime?    @default(now()) @db.Timestamp(6)
-  updated_at    DateTime?    @default(now()) @db.Timestamp(6)
+  breakdown    Json?
+  notes        String?
+  emailed_at   DateTime?    @db.Timestamp(6)
+  email_error  String?
+  created_at   DateTime?    @default(now()) @db.Timestamp(6)
+  updated_at   DateTime?    @default(now()) @db.Timestamp(6)
 
   @@unique([run_id, employee_id])
   @@index([employee_id])
 }
 
-// The piece-rate employees who make a product. When it sells, each is paid
-// the pieces sold (a product sold by the dozen counts x 12) x their own rate
-// -- in the salary run whose period holds the sale's bill date.
-model product_makers {
-  product_id  String    @db.VarChar(16)
-  products    products  @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  employee_id Int
-  employees   employees @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  created_at  DateTime? @default(now()) @db.Timestamp(6)
+// Piece-rate pay, entered after a sale: an employee, a work type (its rate),
+// and the quantity -- in pieces, or in combos of a product (x its combo
+// size). DRAFT can be changed or deleted; CONFIRMED is locked, can be
+// emailed to the employee as a payslip, and counts in the salary report.
+model piece_pays {
+  id           String     @id @db.VarChar(16)
+  company_id   Int
+  companies    companies  @relation(fields: [company_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  employee_id  Int
+  employees    employees  @relation(fields: [employee_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  work_type_id String     @db.VarChar(16)
+  work_types   work_types @relation(fields: [work_type_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  // COMBO: [quantity] combos of [product_id], each [combo_size] pieces.
+  product_id   String?    @db.VarChar(16)
+  products     products?  @relation(fields: [product_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  pay_date     DateTime   @db.Date
+  unit         String     @default("PIECE") @db.VarChar(10)
+  quantity     Int
+  combo_size   Int?
+  pieces       Int
+  rate         Decimal    @db.Decimal(12, 2)
+  amount       Decimal    @db.Decimal(12, 2)
+  notes        String?
+  status       String     @default("DRAFT") @db.VarChar(20)
+  confirmed_at DateTime?  @db.Timestamp(6)
+  emailed_at   DateTime?  @db.Timestamp(6)
+  email_error  String?
+  created_by   Int?
+  created_at   DateTime?  @default(now()) @db.Timestamp(6)
+  updated_at   DateTime?  @default(now()) @db.Timestamp(6)
 
-  @@id([product_id, employee_id])
+  @@index([company_id, pay_date])
   @@index([employee_id])
 }

@@ -142,7 +142,7 @@ async function sendPayslipEmail(to, { slip, typeLabel, companyName }) {
   const monthName = slip.period_label ?? slip.month;
   const per = {
     SHIFT_RATE: 'per shift',
-    PIECE_RATE: slip.salary_period === 'PER_DOZEN' ? 'per dozen' : 'per piece',
+    PIECE_RATE: 'per piece',
     HOURLY: 'per hour',
     WEEKLY: 'per week',
     MONTHLY: 'per month',
@@ -177,6 +177,41 @@ async function sendPayslipEmail(to, { slip, typeLabel, companyName }) {
   await send({ from: RESEND_FROM_EMAIL, to, subject: `Your payslip for ${monthName}`, text });
 }
 
+// A confirmed piece-rate pay (payroll/piecePays shape), plain text like the
+// other employee emails.
+async function sendPiecePayEmail(to, { entry, companyName }) {
+  if (!resend) {
+    throw new Error('Email is not set up on the server (RESEND_API_KEY is missing)');
+  }
+  const day = new Date(`${entry.pay_date}T00:00:00Z`).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+  const qtyLine =
+    entry.unit === 'COMBO'
+      ? `${qty(entry.quantity)} combos of ${entry.product_name ?? 'the product'} (${entry.combo_size} each) = ${qty(entry.pieces)} pieces`
+      : `${qty(entry.pieces)} pieces`;
+  const text = [
+    `Hello ${entry.employee.name},`,
+    '',
+    `Here is your piece-rate pay from ${companyName || 'your company'}, dated ${day}.`,
+    '',
+    `Employee ID: ${entry.employee.employee_code ?? '-'}`,
+    `Work: ${entry.work_type_name ?? '-'}`,
+    `Quantity: ${qtyLine}`,
+    `Rate: ${rupees(entry.rate)} per piece`,
+    '',
+    `Pay: ${rupees(entry.amount)}`,
+    ...(entry.notes ? ['', `Note: ${entry.notes}`] : []),
+    '',
+    'You can also see it in the Brixen app, under My Work → My payslips.',
+    '',
+  ].join('\n');
+  await send({ from: RESEND_FROM_EMAIL, to, subject: `Your piece-rate pay, ${day}`, text });
+}
+
 module.exports = {
   sendOtpEmail,
   sendWelcomeEmail,
@@ -184,4 +219,5 @@ module.exports = {
   sendPinResetOtpEmail,
   sendEmployeeSetupEmail,
   sendPayslipEmail,
+  sendPiecePayEmail,
 };

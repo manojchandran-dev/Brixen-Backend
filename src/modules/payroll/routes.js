@@ -3,6 +3,7 @@ const asyncHandler = require('../../middleware/asyncHandler');
 const { success, error } = require('../../core/responses/apiResponse');
 const { parseCompanyId } = require('../../utils/companyScope');
 const service = require('./service');
+const piecePays = require('./piecePays');
 
 // Salary generation, part of Employees (mounted behind its permission).
 // Scoped to one company (a superadmin passes company_id).
@@ -21,6 +22,9 @@ const handle = (fn) =>
       throw err;
     }
   });
+
+// Piece-rate pay, entered after sales.
+router.use('/piece-pays', piecePays.router);
 
 router.get('/runs', handle(async (req, res, company_id) => success(res, await service.listRuns(company_id))));
 
