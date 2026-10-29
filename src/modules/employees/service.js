@@ -211,6 +211,15 @@ async function revokeSessions(employee_id) {
   }
 }
 
+// Frees a removed login's email for someone else: the row keeps a
+// placeholder address that can't receive mail or be signed in with.
+async function releaseEmail(user_id) {
+  await prisma.users.updateMany({
+    where: { id: user_id, ...ANY_ROW },
+    data: { email: `removed-${user_id}-${Date.now()}@removed.invalid`, updated_at: new Date() },
+  });
+}
+
 // Activates (or re-sends) the employee's login: a new temporary password,
 // only its hash saved, emailed in plain text to their saved email. Each send
 // replaces the last password, so an older email stops working. If the email
@@ -228,9 +237,12 @@ async function activateLogin(employee_id, company_id) {
   const existing = await prisma.users.findFirst({ where: { employee_id, ...ANY_ROW } });
   const taken = await prisma.users.findFirst({
     where: { email: { equals: email, mode: 'insensitive' }, ...ANY_ROW, ...(existing ? { id: { not: existing.id } } : {}) },
-    select: { id: true },
+    select: { id: true, deleted_at: true, user_type: true },
   });
-  if (taken) throw new EmployeeError(`${email} is already used by another login`, 409);
+  // A removed employee login (or a deleted employee's) still holds its
+  // address, since emails are unique across all rows: let it go.
+  if (taken && taken.deleted_at && taken.user_type === 'employee') await releaseEmail(taken.id);
+  else if (taken) throw new EmployeeError(`${email} is already used by another login`, 409);
 
   // A duplicate request -- the same login and address within a few seconds
   // (a double tap, a request sent twice) -- gets the login as it is, not a
@@ -326,6 +338,9 @@ async function deleteEmployee(id) {
   // A deleted employee can't sign in.
   await revokeSessions(id);
   await prisma.users.updateMany({ where: { employee_id: id, deleted_at: null }, data: { deleted_at: new Date() } });
+  // Their address can be given to a new employee.
+  const user = await prisma.users.findFirst({ where: { employee_id: id, ...ANY_ROW }, select: { id: true } });
+  if (user) await releaseEmail(user.id);
   return employeeRepository.delete(id);
 }
 

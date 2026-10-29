@@ -135,7 +135,15 @@ router.get(
     const to = parseDay(String(req.query.to ?? ''));
     if (!from || !to) throw new PayrollError('from and to are needed as YYYY-MM-DD');
     const lines = await prisma.sale_items.findMany({
-      where: { sales: { company_id, bill_date: { gte: from, lte: to } } },
+      where: {
+        sales: {
+          company_id,
+          bill_date: { gte: from, lte: to },
+          // A GST bill that also has a secondary bill is the same sale twice;
+          // like the sales reports, count it once (the secondary bill).
+          NOT: { bill_type: 'GST', has_secondary_bill: true },
+        },
+      },
       select: {
         sale_id: true,
         product_id: true,
